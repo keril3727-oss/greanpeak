@@ -65,35 +65,43 @@ document.querySelectorAll(".demo-pill").forEach(el => {
 
 function showForm(title, description, fields, submitText="Сохранить") {
   return new Promise(resolve => {
-    // Build a fresh dialog in the document; do not reuse or move hidden form controls.
-    const backdrop = document.createElement("div");
-    backdrop.className = "pr-form-backdrop";
-    backdrop.setAttribute("role","presentation");
+    // Use the browser's native dialog/top layer. Native inputs keep their
+    // normal Android tap-to-focus and keyboard behavior.
+    const dialog = document.createElement("dialog");
+    dialog.className = "pr-native-dialog";
+    dialog.setAttribute("aria-labelledby","pr-dialog-title");
+
     const card = document.createElement("div");
-    card.className = "pr-form-card";
-    card.setAttribute("role","dialog");
-    card.setAttribute("aria-modal","true");
+    card.className = "pr-native-card";
+
     const closeButton = document.createElement("button");
     closeButton.type = "button";
     closeButton.className = "pr-form-close";
     closeButton.setAttribute("aria-label","Закрыть");
     closeButton.textContent = "×";
+
     const kicker = document.createElement("div");
     kicker.className = "pr-form-kicker";
     kicker.textContent = "PROFIT RADAR";
+
     const heading = document.createElement("h2");
+    heading.id = "pr-dialog-title";
     heading.textContent = title;
+
     const copy = document.createElement("p");
     copy.textContent = description || "Заполните поля ниже.";
+
     const form = document.createElement("form");
     form.className = "pr-form";
     form.autocomplete = "on";
     const controls = [];
+
     fields.forEach(field => {
       const label = document.createElement("label");
       label.className = "pr-field";
       label.appendChild(document.createTextNode(field.label));
       let control;
+
       if (field.type === "select") {
         control = document.createElement("select");
         (field.options || []).forEach(item => {
@@ -113,53 +121,56 @@ function showForm(title, description, fields, submitText="Сохранить") {
         if (field.min !== undefined) control.min = field.min;
         if (field.step !== undefined) control.step = field.step;
       }
+
       control.name = field.name;
       control.required = !!field.required;
-      control.disabled = false;
-      control.readOnly = false;
       label.appendChild(control);
       form.appendChild(label);
       controls.push({field,control});
     });
+
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "pr-form-submit";
     submit.textContent = submitText;
     form.appendChild(submit);
-    card.append(closeButton,kicker,heading,copy,form);
-    backdrop.appendChild(card);
-    document.body.appendChild(backdrop);
 
-    // On Android, explicitly focus the real form control from the user's tap.
-    // Keep the focus call inside the click gesture so the mobile keyboard can open.
-    backdrop.addEventListener("click", event => {
-      const control = event.target.closest("input, select, textarea");
-      if (control && !control.disabled && !control.readOnly) {
-        control.focus({ preventScroll: true });
-      }
-    }, true);
+    card.append(closeButton,kicker,heading,copy,form);
+    dialog.appendChild(card);
+    document.body.appendChild(dialog);
 
     let finished = false;
-    const close = value => {
+    const finish = value => {
       if (finished) return;
       finished = true;
-      backdrop.remove();
+      if (dialog.open) dialog.close();
+      dialog.remove();
       resolve(value);
     };
-    closeButton.addEventListener("click",() => close(null));
-    backdrop.addEventListener("click",event => {
-      if (event.target === backdrop) close(null);
+
+    closeButton.addEventListener("click",() => finish(null));
+    dialog.addEventListener("cancel",event => {
+      event.preventDefault();
+      finish(null);
+    });
+    dialog.addEventListener("click",event => {
+      if (event.target === dialog) finish(null);
     });
     form.addEventListener("submit",event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const values = {};
       controls.forEach(({field,control}) => {
-        values[field.name] = field.type === "number" ? Number(control.value)
+        values[field.name] = field.type === "number"
+          ? Number(control.value)
           : control.value.trim();
       });
-      close(values);
+      finish(values);
     });
+
+    // showModal() places the dialog in the browser top layer, above page
+    // transforms/sticky headers, without a custom click-blocking overlay.
+    dialog.showModal();
   });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
