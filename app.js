@@ -130,6 +130,15 @@ function showForm(title, description, fields, submitText="Сохранить") {
     backdrop.appendChild(card);
     document.body.appendChild(backdrop);
 
+    // On Android, explicitly focus the real form control from the user's tap.
+    // Keep the focus call inside the click gesture so the mobile keyboard can open.
+    backdrop.addEventListener("click", event => {
+      const control = event.target.closest("input, select, textarea");
+      if (control && !control.disabled && !control.readOnly) {
+        control.focus({ preventScroll: true });
+      }
+    }, true);
+
     let finished = false;
     const close = value => {
       if (finished) return;
