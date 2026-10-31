@@ -65,20 +65,44 @@ document.querySelectorAll(".demo-pill").forEach(el => {
 
 function showForm(title, description, fields, submitText="Сохранить") {
  return new Promise(resolve=>{
-  document.querySelector(".pr-form-backdrop")?.remove();
-  const backdrop=document.createElement("div");backdrop.className="pr-form-backdrop";
-  const inputs=fields.map((f,i)=>{const id="pr-field-"+i;
-   if(f.type==="select")return '<label class="pr-field" for="'+id+'">'+esc(f.label)+'<select id="'+id+'" '+(f.required?"required":"")+'>'+f.options.map(o=>'<option value="'+esc(o.value)+'" '+(o.value===f.value?"selected":"")+'>'+esc(o.label)+'</option>').join("")+'</select></label>';
-   return '<label class="pr-field" for="'+id+'">'+esc(f.label)+'<input id="'+id+'" type="'+(f.type||"text")+'" placeholder="'+esc(f.placeholder||"")+'" value="'+esc(f.value??"")+'" '+(f.required?"required":"")+' '+(f.min!==undefined?'min="'+f.min+'"':"")+' '+(f.step!==undefined?'step="'+f.step+'"':"")+' '+(f.autocomplete?'autocomplete="'+f.autocomplete+'"':"")+' '+(f.inputmode?'inputmode="'+f.inputmode+'"':"")+'></label>';
-  }).join("");
-  backdrop.innerHTML='<div class="pr-form-card" role="dialog" aria-modal="true"><button type="button" class="pr-form-close">×</button><div class="pr-form-kicker">PROFIT RADAR</div><h2>'+esc(title)+'</h2><p>'+esc(description||"Заполните поля ниже.")+'</p><form class="pr-form">'+inputs+'<button class="pr-form-submit" type="submit">'+esc(submitText)+'</button></form></div>';
-  document.body.appendChild(backdrop);
-  const close=()=>{backdrop.remove();resolve(null);};
-  backdrop.querySelector(".pr-form-close").onclick=close;backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
-  backdrop.querySelector("form").onsubmit=e=>{e.preventDefault();const values={};fields.forEach((f,i)=>{const el=backdrop.querySelector("#pr-field-"+i);values[f.name]=f.type==="number"?Number(el.value):el.value.trim();});backdrop.remove();resolve(values);};
-  // На мобильных браузерах не вызываем focus() автоматически:
-  // это может открыть системную панель/буфер обмена вместо клавиатуры.
-  // Пользователь сам выбирает поле и открывает клавиатуру касанием.
+  const backdrop=$("nativeFormBackdrop");
+  const form=$("nativeForm");
+  const heading=$("nativeFormTitle");
+  const copy=$("nativeFormDescription");
+  const submit=$("nativeFormSubmit");
+  if(!backdrop||!form){toast("Не удалось открыть форму.");resolve(null);return;}
+  const controls=[];
+  for(let i=0;i<5;i++){
+   const label=$("nativeFieldLabel"+i), input=$("nativeFieldInput"+i), select=$("nativeFieldSelect"+i);
+   if(label){label.hidden=i>=fields.length;label.firstChild.textContent=i<fields.length?fields[i].label:"";}
+   if(i>=fields.length)continue;
+   const f=fields[i], useSelect=f.type==="select", control=useSelect?select:input;
+   input.hidden=useSelect;select.hidden=!useSelect;
+   input.disabled=useSelect;select.disabled=!useSelect;
+   if(useSelect){
+    select.replaceChildren();
+    (f.options||[]).forEach(o=>{const option=document.createElement("option");option.value=o.value;option.textContent=o.label;option.selected=o.value===f.value;select.appendChild(option);});
+    select.required=!!f.required;
+   }else{
+    input.type=f.type||"text";input.value=f.value??"";input.placeholder=f.placeholder||"";
+    input.required=!!f.required;input.autocomplete=f.autocomplete||"off";
+    input.inputMode=f.inputmode||"text";
+    if(f.min!==undefined)input.min=f.min;else input.removeAttribute("min");
+    if(f.step!==undefined)input.step=f.step;else input.removeAttribute("step");
+   }
+   controls.push({field:f,control});
+  }
+  heading.textContent=title;copy.textContent=description||"Заполните поля ниже.";submit.textContent=submitText;
+  backdrop.hidden=false;backdrop.style.display="flex";
+  const close=()=>{backdrop.hidden=true;backdrop.style.display="none";form.removeEventListener("submit",onSubmit);resolve(null);};
+  const onSubmit=e=>{
+   e.preventDefault();const values={};
+   controls.forEach(({field,control})=>{values[field.name]=field.type==="number"?Number(control.value):control.value.trim();});
+   backdrop.hidden=true;backdrop.style.display="none";form.removeEventListener("submit",onSubmit);resolve(values);
+  };
+  $("nativeFormClose").onclick=close;
+  backdrop.onclick=e=>{if(e.target===backdrop)close();};
+  form.addEventListener("submit",onSubmit);
  });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
