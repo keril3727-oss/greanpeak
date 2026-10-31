@@ -53,7 +53,6 @@ alter table public.transactions
   add column if not exists billing_date date;
 
 create unique index if not exists transactions_subscription_billing_date_uidx
-on public.transactions(subscription_id,billing_date)
-where subscription_id is not null and billing_date is not null;
+on public.transactions(subscription_id,billing_date);
 
 grant select,insert,update,delete on public.subscriptions to authenticated;
