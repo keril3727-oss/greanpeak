@@ -529,7 +529,8 @@ const titles = {
   documents:"Документы",
   analytics:"Аналитика",
   planning:"Планирование",
-  settings:"Настройки"
+  settings:"Настройки",
+  pricing:"Тарифы"
 };
 
 function navigate(page) {
@@ -546,6 +547,10 @@ function navigate(page) {
   if ($("crumbName")) $("crumbName").textContent = titles[page] || page;
   $("sidebar")?.classList.remove("open");
 }
+
+document.querySelectorAll("[data-plan]").forEach(button => {
+  button.onclick = () => toast("Тариф " + button.dataset.plan + ": оплата скоро будет подключена.");
+});
 
 document.querySelectorAll(".nav-item").forEach(x => {
   x.onclick = () => navigate(x.dataset.page);
