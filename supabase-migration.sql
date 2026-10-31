@@ -1,3 +1,34 @@
+
+-- Finance operations table and access policy
+create table if not exists public.transactions (
+ id uuid primary key default gen_random_uuid(),
+ company_id uuid not null references public.companies(id) on delete cascade,
+ name text not null,
+ date date not null default current_date,
+ category text not null default 'Другое',
+ type text not null check (type in ('income','expense')),
+ amount numeric(14,2) not null check (amount > 0),
+ created_at timestamptz not null default now()
+);
+alter table public.transactions enable row level security;
+drop policy if exists "company members manage transactions" on public.transactions;
+create policy "company members manage transactions" on public.transactions
+for all to authenticated
+using (
+ exists (
+  select 1 from public.company_members m
+  where m.company_id = transactions.company_id
+    and m.user_id = auth.uid()
+ )
+)
+with check (
+ exists (
+  select 1 from public.company_members m
+  where m.company_id = transactions.company_id
+    and m.user_id = auth.uid()
+ )
+);
+
 -- Profit Radar: cloud modules and row-level security
 create table if not exists public.products (
  id uuid primary key default gen_random_uuid(),
