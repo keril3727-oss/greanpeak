@@ -74,7 +74,11 @@ function showForm(title, description, fields, submitText="Сохранить") {
   const close=()=>{backdrop.remove();resolve(null);};
   backdrop.querySelector(".pr-form-close").onclick=close;backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
   backdrop.querySelector("form").onsubmit=e=>{e.preventDefault();const values={};fields.forEach((f,i)=>{const el=backdrop.querySelector("#pr-field-"+i);values[f.name]=f.type==="number"?Number(el.value):el.value.trim();});backdrop.remove();resolve(values);};
-  setTimeout(()=>backdrop.querySelector("input,select")?.focus(),180);
+  const firstInput=backdrop.querySelector("input");
+  if(firstInput){
+   if(!firstInput.hasAttribute("inputmode") && firstInput.type==="text") firstInput.setAttribute("inputmode","text");
+   setTimeout(()=>{firstInput.focus({preventScroll:false});},350);
+  }
  });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
