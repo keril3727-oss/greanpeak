@@ -72,26 +72,84 @@ function updateProfile() {
     $("profileEmail").textContent = user?.email || "Войдите в аккаунт";
 }
 
-async function login() {
-  const email = prompt("Введите email:");
-  if (!email) return;
+async function authFlow() {
+  const choice = prompt("Аккаунт Profit Radar:\n1 — Войти\n2 — Создать аккаунт\n3 — Восстановить пароль");
+  if (choice === "1") return login();
+  if (choice === "2") return signUp();
+  if (choice === "3") return resetPassword();
+  if (choice !== null) toast("Выберите 1, 2 или 3.");
+}
 
+async function login() {
+  const email = prompt("Введите email аккаунта:");
+  if (!email?.trim()) return;
   const password = prompt("Введите пароль:");
   if (!password) return;
 
   const {data,error} = await db.auth.signInWithPassword({
-    email: email.trim(),
+    email: email.trim().toLowerCase(),
     password
   });
 
   if (error) {
-    toast("Ошибка входа: " + error.message);
+    const message = error.message.toLowerCase().includes("invalid login credentials")
+      ? "Неверный email или пароль. Если аккаунта ещё нет, выберите «Создать аккаунт»."
+      : error.message;
+    toast("Ошибка входа: " + message);
     return;
   }
 
   user = data.user;
   updateProfile();
   await loadCompany();
+  toast("Вы успешно вошли!");
+}
+
+async function signUp() {
+  const email = prompt("Введите email для нового аккаунта:");
+  if (!email?.trim()) return;
+  const password = prompt("Придумайте пароль (минимум 6 символов):");
+  if (!password) return;
+  if (password.length < 6) {
+    toast("Пароль должен содержать минимум 6 символов.");
+    return;
+  }
+
+  const {data,error} = await db.auth.signUp({
+    email: email.trim().toLowerCase(),
+    password,
+    options: { emailRedirectTo: window.location.origin }
+  });
+
+  if (error) {
+    const message = error.message.toLowerCase().includes("already registered")
+      ? "Этот email уже зарегистрирован. Выберите «Войти» или восстановите пароль."
+      : error.message;
+    toast("Ошибка регистрации: " + message);
+    return;
+  }
+
+  if (data.session && data.user) {
+    user = data.user;
+    updateProfile();
+    toast("Аккаунт создан. Выполняю вход…");
+    await loadCompany();
+  } else {
+    toast("Аккаунт почти готов! Откройте письмо от Supabase и подтвердите email, затем войдите.");
+  }
+}
+
+async function resetPassword() {
+  const email = prompt("Введите email аккаунта для восстановления пароля:");
+  if (!email?.trim()) return;
+  const {error} = await db.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+    redirectTo: window.location.origin
+  });
+  if (error) {
+    toast("Ошибка восстановления: " + error.message);
+    return;
+  }
+  toast("Письмо для восстановления пароля отправлено на вашу почту.");
 }
 
 // Создание и загрузка компании
