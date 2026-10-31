@@ -19,6 +19,7 @@
       <button class="nav-item" data-page="finance"><span>↗</span>Финансы <i class="nav-count">3</i></button>
       <button class="nav-item" data-page="inventory"><span>▤</span>Склад</button>
       <button class="nav-item" data-page="customers"><span>♙</span>Клиенты</button>
+      <button class="nav-item" data-page="subscriptions"><span>↻</span>Подписки</button>
       <button class="nav-item" data-page="documents"><span>▧</span>Документы</button>
       <button class="nav-item" data-page="analytics"><span>⌁</span>Аналитика</button>
     </nav>
@@ -60,6 +61,26 @@
       <section class="page" id="page-documents"><div class="page-heading"><div><div class="overline">ФАЙЛЫ И ОТЧЁТНОСТЬ</div><h1>Документы<span class="green">.</span></h1><p class="subheading">Счета, договоры и рабочие документы.</p></div><button class="btn btn-primary" id="addDocument">＋ Новый документ</button></div><div class="doc-grid"><article class="doc-card"><div class="doc-icon">▤</div><div><b>Счета</b><small>12 документов</small></div><span>↗</span></article><article class="doc-card"><div class="doc-icon">▧</div><div><b>Договоры</b><small>8 документов</small></div><span>↗</span></article><article class="doc-card"><div class="doc-icon">▥</div><div><b>Отчёты</b><small>6 документов</small></div><span>↗</span></article></div><div class="empty-hint"><div>✧</div><b>Ваш документооборот начинается здесь</b><p>Создавайте и организуйте документы компании. Сейчас отображается пример структуры.</p></div></section>
       <section class="page" id="page-analytics"><div class="page-heading"><div><div class="overline">ДАННЫЕ И РЕШЕНИЯ</div><h1>Аналитика<span class="green">.</span></h1><p class="subheading">Показатели, которые помогают расти.</p></div><button class="btn btn-secondary" id="exportCsv">↓ Экспорт CSV</button></div><div class="stats-grid compact"><article class="stat-card"><div class="stat-top"><span>Маржинальность</span><span class="stat-icon green-icon">%</span></div><div class="stat-value" id="analyticsMargin">—</div><div class="stat-foot"><span class="trend positive">Здоровый показатель</span></div></article><article class="stat-card"><div class="stat-top"><span>Средний чек</span><span class="stat-icon blue-icon">€</span></div><div class="stat-value" id="analyticsAverage">—</div><div class="stat-foot">За последние 30 дней</div></article><article class="stat-card"><div class="stat-top"><span>Конверсия</span><span class="stat-icon purple-icon">⌁</span></div><div class="stat-value" id="analyticsConversion">Нет данных</div><div class="stat-foot">+1,2 п.п. за месяц</div></article></div><article class="panel"><div class="panel-head"><div><h2>Ключевые показатели</h2><p>Расчёт по сохранённым операциям компании</p></div></div><div class="analytics-bars" id="analyticsBars"><div><span>Выручка</span><i data-analytics-bar="income" style="--w:0%"></i><b id="analyticsRevenue">€0</b></div><div><span>Прибыль</span><i data-analytics-bar="profit" style="--w:0%"></i><b id="analyticsProfit">€0</b></div><div><span>Расходы</span><i data-analytics-bar="expense" style="--w:0%"></i><b id="analyticsExpense">€0</b></div><div><span>План продаж</span><i style="--w:0%"></i><b id="analyticsSalesPlan">—</b></div></div></article></section>
       <section class="page" id="page-planning"><div class="page-heading"><div><div class="overline">ЗАДАЧИ И ЦЕЛИ</div><h1>Планирование<span class="green">.</span></h1><p class="subheading">Держите важные дела под контролем.</p></div><button class="btn btn-primary" id="planningTask">＋ Новая задача</button></div><article class="panel"><div class="panel-head"><div><h2>Задачи на сегодня</h2><p>Отмечайте выполненные пункты</p></div></div><div class="task-list planning-list" id="planningList"></div></article></section>
+      <section class="page" id="page-subscriptions">
+        <div class="page-heading">
+          <div><div class="overline">РЕГУЛЯРНЫЕ ПЛАТЕЖИ</div><h1>Подписки<span class="green">.</span></h1><p class="subheading">Контролируйте регулярные расходы бизнеса.</p></div>
+          <button class="btn btn-primary" id="addSubscription">＋ Добавить подписку</button>
+        </div>
+        <div class="stats-grid compact">
+          <article class="stat-card"><div class="stat-top"><span>Активные подписки</span><span class="stat-icon green-icon">↻</span></div><div class="stat-value" id="subscriptionCount">0</div><div class="stat-foot">Регулярные платежи</div></article>
+          <article class="stat-card"><div class="stat-top"><span>В месяц</span><span class="stat-icon orange-icon">€</span></div><div class="stat-value" id="subscriptionMonthly">€0</div><div class="stat-foot">Расчётная сумма</div></article>
+          <article class="stat-card"><div class="stat-top"><span>В год</span><span class="stat-icon blue-icon">◈</span></div><div class="stat-value" id="subscriptionYearly">€0</div><div class="stat-foot">Расчётная сумма</div></article>
+        </div>
+        <article class="panel subscription-chart-panel">
+          <div class="panel-head"><div><h2>Структура регулярных расходов</h2><p>Месячная стоимость каждой подписки</p></div></div>
+          <div id="subscriptionChart" class="subscription-chart"><p class="subscription-empty">Добавьте первую подписку — здесь появится график.</p></div>
+        </article>
+        <article class="panel table-panel full-panel">
+          <div class="panel-head"><div><h2>Мои подписки</h2><p>Следующая дата списания и стоимость</p></div></div>
+          <div class="table-scroll"><table><thead><tr><th>ПОДПИСКА</th><th>СТОИМОСТЬ</th><th>ПЕРИОД</th><th>СЛЕДУЮЩАЯ ОПЛАТА</th><th>ДЕЙСТВИЯ</th></tr></thead><tbody id="subscriptionRows"><tr><td colspan="5">Загрузка…</td></tr></tbody></table></div>
+        </article>
+        <p class="demo-note">Расход записывается в финансовую историю при открытии приложения в день оплаты или позже. Для автоматической работы в фоне нужен отдельный серверный планировщик.</p>
+      </section>
       <section class="page" id="page-settings"><div class="page-heading"><div><div class="overline">ПРОФИЛЬ И ПРЕДПОЧТЕНИЯ</div><h1>Настройки<span class="green">.</span></h1><p class="subheading">Управление рабочим пространством.</p></div></div><article class="panel settings-panel"><h2>Аккаунт</h2><p>Подключите аккаунт, чтобы использовать регистрацию и вход.</p><div class="setting-row"><div><b>Авторизация Supabase</b><small>Подключение к вашему проекту</small></div><button class="btn btn-secondary" id="settingsAuth">Войти / создать аккаунт</button></div><div class="setting-row"><div><b>Демонстрационные данные</b><small>Примеры для знакомства с интерфейсом</small></div><span class="status warning">Включены</span></div><div class="setting-row"><div><b>Хранение операций</b><small>Пока сохраняются локально в этом браузере</small></div><span class="status neutral">Локально</span></div></article></section>
     </div>
   </main>
