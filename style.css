@@ -4,48 +4,69 @@
 @media(max-width:380px){.stats-grid,.stats-grid.compact{grid-template-columns:1fr}.top-actions .icon-btn:first-of-type{display:none}.form-row{grid-template-columns:1fr}}
 
 
-/* Native browser dialogs and controls (Android-friendly) */
-dialog.pr-native-dialog{
-  position:fixed;
-  inset:0;
-  width:min(460px,calc(100% - 24px));
-  max-width:none;
-  max-height:calc(100% - 24px);
-  margin:auto;
-  padding:0;
-  overflow:visible;
-  border:1px solid #294634;
-  border-radius:22px;
-  background:#101b14;
+/* Full-page native forms: no modal, no fixed overlay, no transformed ancestors. */
+.app-shell[hidden]{display:none!important}
+.pr-form-screen{
+  display:block;
+  position:relative;
+  width:100%;
+  min-height:100vh;
+  min-height:100svh;
+  margin:0;
+  padding:0 18px calc(28px + env(safe-area-inset-bottom));
+  background:#050907;
   color:#effaf2;
-  box-shadow:0 24px 80px rgba(0,0,0,.48);
+  isolation:isolate;
 }
-dialog.pr-native-dialog::backdrop{background:rgba(0,0,0,.76)}
-.pr-native-card{
-  max-height:calc(100dvh - 24px);
-  overflow-y:auto;
-  -webkit-overflow-scrolling:touch;
+.pr-form-header{
+  min-height:68px;
+  max-width:720px;
+  margin:0 auto;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid #1b3526;
+}
+.pr-form-brand{font:800 13px Manrope,sans-serif;letter-spacing:2px;color:#42e58b}
+.pr-form-back{
+  min-height:42px;padding:8px 12px;border:1px solid #294634;border-radius:10px;
+  background:#102017;color:#dcebe0;font:600 14px "DM Sans",sans-serif;
+  touch-action:manipulation;
+}
+.pr-form-card{
+  display:block;
+  width:100%;
+  max-width:520px;
+  margin:36px auto 0;
   padding:28px;
+  border:1px solid #1b3526;
+  border-radius:18px;
+  background:#0d1711;
 }
-.pr-native-card h2{font:700 24px Manrope;line-height:1.2;margin:0 36px 8px 0;color:#f2fff5}
-.pr-native-card>p{font-size:14px;line-height:1.5;color:#9caf9f;margin:0 0 22px}
-.pr-form-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:1px solid #294634;border-radius:12px;background:#17271d;color:#d9e9dd;font-size:25px;cursor:pointer}
-.pr-form{display:grid;gap:15px}
-.pr-field{display:grid;gap:8px;font-size:13px;font-weight:650;color:#c9d9ce}
+.pr-form-card h1{font:800 26px Manrope,sans-serif;line-height:1.2;margin:0 0 10px}
+.pr-form-card>p{font:14px/1.55 "DM Sans",sans-serif;color:#9caf9f;margin:0 0 24px}
+.pr-form{display:grid;gap:18px}
+.pr-field{display:grid;gap:9px;font:650 14px "DM Sans",sans-serif;color:#c9d9ce}
 .pr-field input,.pr-field select{
-  box-sizing:border-box;display:block;width:100%;min-height:56px;
-  border:1px solid #31513b;border-radius:13px;background:#09120c;
-  color:#f2fff5;padding:0 15px;font:inherit;font-size:16px;line-height:1.4;
-  outline:none;appearance:auto;-webkit-appearance:auto;
-  pointer-events:auto;touch-action:auto;user-select:text;-webkit-user-select:text;
+  display:block;width:100%;height:58px;min-height:58px;
+  margin:0;padding:0 15px;border:1px solid #31513b;border-radius:12px;
+  background:#09120c;color:#f2fff5;
+  font-family:Arial,sans-serif;font-size:16px;font-weight:400;line-height:normal;
+  opacity:1;appearance:auto;-webkit-appearance:auto;
+  pointer-events:auto;touch-action:pan-y;user-select:text;-webkit-user-select:text;
 }
-.pr-field input:focus,.pr-field select:focus{border-color:#42e58b;box-shadow:0 0 0 3px rgba(66,229,139,.13)}
-.pr-field input::placeholder{color:#627768}
-.pr-form-submit{width:100%;min-height:52px;border:0;border-radius:14px;background:linear-gradient(135deg,#42e58b,#1ca85d);color:#041109;font-size:15px;font-weight:800;cursor:pointer;padding:12px 18px}
-@media(max-width:520px){
- dialog.pr-native-dialog{width:calc(100% - 16px);max-height:calc(100% - 16px);border-radius:20px}
- .pr-native-card{max-height:calc(100dvh - 16px);padding:24px 18px calc(20px + env(safe-area-inset-bottom))}
- .pr-native-card h2{font-size:22px}
- .pr-field input,.pr-field select{min-height:54px;font-size:16px}
+.pr-field input:focus,.pr-field select:focus{outline:2px solid #42e58b;border-color:#42e58b}
+.pr-field input::placeholder{color:#718579;opacity:1}
+.pr-form-actions{display:block;margin-top:8px}
+.pr-form-submit{
+  display:block;width:100%;min-height:54px;padding:13px 18px;
+  border:0;border-radius:12px;background:#42e58b;color:#041109;
+  font:800 15px "DM Sans",sans-serif;touch-action:manipulation;
 }
-/* Legacy modal styles remain only for the separate operation form. */
+@media(max-width:600px){
+  .pr-form-screen{padding-left:14px;padding-right:14px}
+  .pr-form-header{min-height:60px}
+  .pr-form-card{margin-top:20px;padding:22px 17px;border-radius:15px}
+  .pr-form-card h1{font-size:23px}
+  .pr-field input,.pr-field select{height:58px;min-height:58px;font-size:16px}
+}
