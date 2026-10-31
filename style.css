@@ -80,3 +80,20 @@
 .subscription-track i{height:100%;display:block;border-radius:20px;background:linear-gradient(90deg,#1ca85d,#42e58b)}
 .subscription-empty{color:#7f9085;font-size:11px;text-align:center;padding:12px}
 @media(max-width:650px){.subscription-bar-row{grid-template-columns:1fr auto;gap:7px}.subscription-track{grid-column:1/-1;grid-row:2}.subscription-bar-row>b{grid-column:2;grid-row:1}}
+
+/* Pricing page */
+.pricing-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:stretch;margin:24px 0 16px}
+.pricing-card{position:relative;display:flex;flex-direction:column;min-width:0;padding:24px 22px;background:linear-gradient(160deg,#101d15,#0c1510);border:1px solid #294333;border-radius:14px;overflow:hidden}
+.pricing-featured{border-color:#42e58b;box-shadow:0 0 0 1px #42e58b22,0 14px 38px #0004}
+.pricing-badge{position:absolute;right:14px;top:14px;padding:5px 8px;border-radius:20px;background:#1a3b28;color:#8cebb0;font-size:8px;font-weight:800;letter-spacing:1px}
+.pricing-plan{font:800 13px Manrope;letter-spacing:2px;color:#8de9ad}
+.pricing-description{min-height:42px;margin:13px 0;color:#9aaba0;font-size:11px;line-height:1.6}
+.pricing-price{margin:8px 0 18px;font:800 35px Manrope;letter-spacing:-1.5px;color:#f1faf3}
+.pricing-price small{font:500 11px "DM Sans",sans-serif;color:#84998b;letter-spacing:0}
+.pricing-card ul{display:grid;gap:13px;list-style:none;padding:17px 0 22px;margin:0 0 18px;border-top:1px solid #24372b;flex:1}
+.pricing-card li{position:relative;padding-left:19px;color:#c3d1c7;font-size:11px;line-height:1.45}
+.pricing-card li:before{content:"✓";position:absolute;left:0;color:#57df91;font-weight:800}
+.pricing-soon{color:#a1ad9f}
+.pricing-button{width:100%;min-height:40px}
+.pricing-note{max-width:850px;color:#74867a;font-size:10px;line-height:1.6;text-align:center;margin:18px auto}
+@media(max-width:900px){.pricing-grid{grid-template-columns:1fr}.pricing-description{min-height:0}.pricing-card{padding:22px}.pricing-card ul{gap:11px}}
