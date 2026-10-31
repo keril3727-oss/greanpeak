@@ -20,6 +20,7 @@
       <button class="nav-item" data-page="inventory"><span>▤</span>Склад</button>
       <button class="nav-item" data-page="customers"><span>♙</span>Клиенты</button>
       <button class="nav-item" data-page="subscriptions"><span>↻</span>Подписки</button>
+      <button class="nav-item" data-page="pricing"><span>◇</span>Тарифы</button>
       <button class="nav-item" data-page="documents"><span>▧</span>Документы</button>
       <button class="nav-item" data-page="analytics"><span>⌁</span>Аналитика</button>
     </nav>
@@ -80,6 +81,32 @@
           <div class="table-scroll"><table><thead><tr><th>ПОДПИСКА</th><th>СТОИМОСТЬ</th><th>ПЕРИОД</th><th>СЛЕДУЮЩАЯ ОПЛАТА</th><th>ДЕЙСТВИЯ</th></tr></thead><tbody id="subscriptionRows"><tr><td colspan="5">Загрузка…</td></tr></tbody></table></div>
         </article>
         <p class="demo-note">Расход записывается в финансовую историю при открытии приложения в день оплаты или позже. Для автоматической работы в фоне нужен отдельный серверный планировщик.</p>
+      </section>
+      <section class="page" id="page-pricing">
+        <div class="page-heading">
+          <div><div class="overline">ПЛАНЫ И ВОЗМОЖНОСТИ</div><h1>Тарифы<span class="green">.</span></h1><p class="subheading">Выберите план Profit Radar для своей компании.</p></div>
+        </div>
+        <div class="pricing-grid">
+          <article class="pricing-card">
+            <div class="pricing-plan">START</div><p class="pricing-description">Для небольшого бизнеса, которому нужен понятный финансовый учёт.</p>
+            <div class="pricing-price">$9 <small>/ месяц</small></div>
+            <ul><li>Учёт доходов и расходов</li><li>История финансовых операций</li><li>Базовый финансовый обзор</li></ul>
+            <button class="btn btn-secondary pricing-button" data-plan="START">Выбрать START</button>
+          </article>
+          <article class="pricing-card pricing-featured">
+            <div class="pricing-badge">ПОПУЛЯРНЫЙ</div><div class="pricing-plan">PRO</div><p class="pricing-description">Для бизнеса, которому важно видеть финансовую картину и динамику.</p>
+            <div class="pricing-price">$19 <small>/ месяц</small></div>
+            <ul><li>Всё из START</li><li>Графики и финансовая аналитика</li><li>Показатели доходов, расходов и прибыли</li><li>Экспорт финансовых операций в CSV</li></ul>
+            <button class="btn btn-primary pricing-button" data-plan="PRO">Выбрать PRO</button>
+          </article>
+          <article class="pricing-card">
+            <div class="pricing-plan">BUSINESS</div><p class="pricing-description">Для компаний, которым нужны дополнительные инструменты управления.</p>
+            <div class="pricing-price">$49 <small>/ месяц</small></div>
+            <ul><li>Всё из PRO</li><li>Расширенные отчёты и командный доступ</li><li>Дополнительные инструменты для управления</li><li><span class="pricing-soon">Часть возможностей в разработке</span></li></ul>
+            <button class="btn btn-secondary pricing-button" data-plan="BUSINESS">Выбрать BUSINESS</button>
+          </article>
+        </div>
+        <p class="pricing-note">Это предварительные тарифы для ознакомления. Оплата ещё не подключена. Состав планов и доступность функций будут уточнены перед запуском продаж.</p>
       </section>
       <section class="page" id="page-settings"><div class="page-heading"><div><div class="overline">ПРОФИЛЬ И ПРЕДПОЧТЕНИЯ</div><h1>Настройки<span class="green">.</span></h1><p class="subheading">Управление рабочим пространством.</p></div></div><article class="panel settings-panel"><h2>Аккаунт</h2><p>Подключите аккаунт, чтобы использовать регистрацию и вход.</p><div class="setting-row"><div><b>Авторизация Supabase</b><small>Подключение к вашему проекту</small></div><button class="btn btn-secondary" id="settingsAuth">Войти / создать аккаунт</button></div><div class="setting-row"><div><b>Демонстрационные данные</b><small>Примеры для знакомства с интерфейсом</small></div><span class="status warning">Включены</span></div><div class="setting-row"><div><b>Хранение операций</b><small>Пока сохраняются локально в этом браузере</small></div><span class="status neutral">Локально</span></div></article></section>
     </div>
