@@ -64,46 +64,75 @@ document.querySelectorAll(".demo-pill").forEach(el => {
 
 
 function showForm(title, description, fields, submitText="Сохранить") {
- return new Promise(resolve=>{
-  const backdrop=$("nativeFormBackdrop");
-  const form=$("nativeForm");
-  const heading=$("nativeFormTitle");
-  const copy=$("nativeFormDescription");
-  const submit=$("nativeFormSubmit");
-  if(!backdrop||!form){toast("Не удалось открыть форму.");resolve(null);return;}
-  const controls=[];
-  for(let i=0;i<5;i++){
-   const label=$("nativeFieldLabel"+i), input=$("nativeFieldInput"+i), select=$("nativeFieldSelect"+i);
-   if(label){label.hidden=i>=fields.length;label.firstChild.textContent=i<fields.length?fields[i].label:"";}
-   if(i>=fields.length)continue;
-   const f=fields[i], useSelect=f.type==="select", control=useSelect?select:input;
-   input.hidden=useSelect;select.hidden=!useSelect;
-   input.disabled=useSelect;select.disabled=!useSelect;
-   if(useSelect){
-    select.replaceChildren();
-    (f.options||[]).forEach(o=>{const option=document.createElement("option");option.value=o.value;option.textContent=o.label;option.selected=o.value===f.value;select.appendChild(option);});
-    select.required=!!f.required;
-   }else{
-    input.type=f.type||"text";input.value=f.value??"";input.placeholder=f.placeholder||"";
-    input.required=!!f.required;input.autocomplete=f.autocomplete||"off";
-    input.inputMode=f.inputmode||"text";
-    if(f.min!==undefined)input.min=f.min;else input.removeAttribute("min");
-    if(f.step!==undefined)input.step=f.step;else input.removeAttribute("step");
-   }
-   controls.push({field:f,control});
-  }
-  heading.textContent=title;copy.textContent=description||"Заполните поля ниже.";submit.textContent=submitText;
-  backdrop.hidden=false;backdrop.style.display="flex";
-  const close=()=>{backdrop.hidden=true;backdrop.style.display="none";form.removeEventListener("submit",onSubmit);resolve(null);};
-  const onSubmit=e=>{
-   e.preventDefault();const values={};
-   controls.forEach(({field,control})=>{values[field.name]=field.type==="number"?Number(control.value):control.value.trim();});
-   backdrop.hidden=true;backdrop.style.display="none";form.removeEventListener("submit",onSubmit);resolve(values);
-  };
-  $("nativeFormClose").onclick=close;
-  backdrop.onclick=e=>{if(e.target===backdrop)close();};
-  form.addEventListener("submit",onSubmit);
- });
+  return new Promise(resolve => {
+    const backdrop = $("nativeFormBackdrop"), form = $("nativeForm");
+    const heading = $("nativeFormTitle"), copy = $("nativeFormDescription");
+    const submit = $("nativeFormSubmit");
+    if (!backdrop || !form) { toast("Не удалось открыть форму."); resolve(null); return; }
+
+    // Create fresh visible native controls; never reuse hidden inputs.
+    form.replaceChildren();
+    const controls = [];
+    fields.forEach(field => {
+      const label = document.createElement("label");
+      label.className = "pr-field";
+      label.append(document.createTextNode(field.label));
+      let control;
+      if (field.type === "select") {
+        control = document.createElement("select");
+        (field.options || []).forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.value; option.textContent = item.label;
+          option.selected = item.value === field.value;
+          control.appendChild(option);
+        });
+      } else {
+        control = document.createElement("input");
+        control.type = field.type || "text";
+        control.placeholder = field.placeholder || "";
+        control.value = field.value ?? "";
+        control.autocomplete = field.autocomplete || "off";
+        control.inputMode = field.inputmode || "text";
+        if (field.min !== undefined) control.min = field.min;
+        if (field.step !== undefined) control.step = field.step;
+      }
+      control.name = field.name;
+      control.required = !!field.required;
+      label.appendChild(control); form.appendChild(label);
+      controls.push({field, control});
+    });
+    heading.textContent = title;
+    copy.textContent = description || "Заполните поля ниже.";
+    submit.textContent = submitText; form.appendChild(submit);
+    backdrop.hidden = false; backdrop.style.display = "flex";
+    backdrop.setAttribute("aria-hidden", "false");
+
+    let finished = false;
+    const close = value => {
+      if (finished) return; finished = true;
+      backdrop.hidden = true; backdrop.style.display = "none";
+      backdrop.setAttribute("aria-hidden", "true");
+      form.removeEventListener("submit", onSubmit);
+      backdrop.removeEventListener("click", onBackdropClick);
+      $("nativeFormClose").removeEventListener("click", onClose);
+      resolve(value);
+    };
+    const onClose = () => close(null);
+    const onBackdropClick = event => { if (event.target === backdrop) close(null); };
+    const onSubmit = event => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      const values = {};
+      controls.forEach(({field, control}) => {
+        values[field.name] = field.type === "number" ? Number(control.value)
+          : field.type === "password" ? control.value : control.value.trim();
+      });
+      close(values);
+    };
+    $("nativeFormClose").addEventListener("click", onClose);
+    backdrop.addEventListener("click", onBackdropClick);
+    form.addEventListener("submit", onSubmit);
+  });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
  return new Promise(resolve=>{const b=document.createElement("div");b.className="pr-form-backdrop";b.innerHTML='<div class="pr-form-card" role="dialog" aria-modal="true"><button class="pr-form-close" type="button">×</button><div class="pr-form-kicker">PROFIT RADAR</div><h2>'+esc(title)+'</h2><p>'+esc(description)+'</p><div class="pr-form-actions"><button type="button" class="pr-form-cancel">Отмена</button><button type="button" class="pr-form-submit">'+esc(confirmText)+'</button></div></div>';document.body.appendChild(b);const done=v=>{b.remove();resolve(v);};b.querySelector(".pr-form-close").onclick=()=>done(false);b.querySelector(".pr-form-cancel").onclick=()=>done(false);b.querySelector(".pr-form-submit").onclick=()=>done(true);b.addEventListener("click",e=>{if(e.target===b)done(false);});});
@@ -330,42 +359,25 @@ function renderFinanceRows(query = "") {
     `).join("");
 }
 
-// Добавление операции
-async function addTransaction(event) {
-  event.preventDefault();
-
-  if (!company || !user) {
-    toast("Сначала войдите и создайте компанию.");
-    return;
-  }
-
-  const name = $("opName").value.trim();
-  const amount = Number($("opAmount").value);
-
-  if (!name || amount <= 0) {
-    toast("Проверьте название и сумму.");
-    return;
-  }
-
+// Add income or expense through the same native input form.
+async function openTransactionForm() {
+  if (!company || !user) { toast("Сначала войдите и создайте компанию."); return; }
+  const values = await showForm("Новая операция", "Запишите доход или расход компании.", [
+    {name:"name",label:"Название операции",required:true,placeholder:"Например, оплата от клиента"},
+    {name:"type",label:"Тип операции",type:"select",value:"income",options:[
+      {value:"income",label:"Доход"},{value:"expense",label:"Расход"}
+    ]},
+    {name:"amount",label:"Сумма",type:"number",required:true,min:"0.01",step:"0.01",inputmode:"decimal",placeholder:"0,00"},
+    {name:"category",label:"Категория",placeholder:"Продажи, закупки…"}
+  ],"Сохранить операцию");
+  if (!values) return;
+  if (!Number.isFinite(values.amount) || values.amount <= 0) { toast("Сумма должна быть больше нуля."); return; }
   const {error} = await db.from("transactions").insert({
-    company_id: company.id,
-    name,
-    date: new Date().toISOString().slice(0,10),
-    category: $("opCategory").value.trim() || "Другое",
-    type: $("opType").value,
-    amount
+    company_id:company.id, name:values.name, date:new Date().toISOString().slice(0,10),
+    category:values.category || "Другое", type:values.type, amount:values.amount
   });
-
-  if (error) {
-    toast("Ошибка сохранения: " + error.message);
-    return;
-  }
-
-  await loadTransactions();
-
-  $("operationForm").reset();
-  $("modalBackdrop")?.classList.remove("open");
-  toast("Операция сохранена!");
+  if (error) { toast("Ошибка сохранения: " + error.message); return; }
+  await loadTransactions(); toast("Операция сохранена!");
 }
 
 // Навигация
@@ -410,20 +422,8 @@ if ($("menuBtn")) {
 if ($("authBtn")) $("authBtn").onclick = authFlow;
 if ($("settingsAuth")) $("settingsAuth").onclick = authFlow;
 
-if ($("operationForm")) {
-  $("operationForm").addEventListener("submit",addTransaction);
-}
-
-if ($("quickAdd")) {
-  $("quickAdd").onclick = () => {
-    if (!user || !company) return toast("Сначала войдите и создайте компанию.");
-    $("modalBackdrop")?.classList.add("open");
-  };
-}
-
-if ($("financeAdd")) {
-  $("financeAdd").onclick = () => $("quickAdd")?.click();
-}
+if ($("quickAdd")) $("quickAdd").onclick = openTransactionForm;
+if ($("financeAdd")) $("financeAdd").onclick = openTransactionForm;
 
 if ($("modalClose")) {
   $("modalClose").onclick = () => $("modalBackdrop")?.classList.remove("open");
