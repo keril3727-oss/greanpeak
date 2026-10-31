@@ -21,3 +21,6 @@
 /* Android keyboard/touch compatibility for dynamically opened forms */
 .pr-form-backdrop,.pr-form-card,.pr-form,.pr-field{pointer-events:auto;touch-action:pan-y;}
 .pr-field input:focus,.pr-field select:focus{outline:2px solid rgba(66,229,139,.45);outline-offset:1px;}
+
+/* Keep inactive prebuilt form controls out of layout. */
+[hidden]{display:none!important}
