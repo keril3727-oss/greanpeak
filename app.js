@@ -512,6 +512,66 @@ if ($("exportCsv")) {
   };
 }
 
+
+const moduleCache={products:[],customers:[],documents:[]};
+const moduleConfig={
+ products:{table:"products",page:"inventory",cols:[["name","Товар"],["sku","Артикул"],["category","Категория"],["quantity","Остаток"],["price","Цена"]]},
+ customers:{table:"customers",page:"customers",cols:[["name","Клиент"],["company_name","Компания"],["email","Email"],["phone","Телефон"]]},
+ documents:{table:"business_documents",page:"documents",cols:[["name","Документ"],["kind","Тип"],["created_at","Создан"]]}
+};
+function setupModule(k){
+ const c=moduleConfig[k],p=$("page-"+c.page); if(!p)return;
+ let panel=p.querySelector(".table-panel"); if(!panel){panel=document.createElement("article");panel.className="panel table-panel full-panel";p.appendChild(panel);}
+ panel.innerHTML='<div class="panel-head"><div><h2>Записи компании</h2><p>Облачные данные компании</p></div><input class="table-search" id="'+k+'Search" placeholder="Поиск…"></div><div class="table-scroll"><table><thead><tr>'+c.cols.map(x=>'<th>'+x[1]+'</th>').join("")+'<th>ДЕЙСТВИЯ</th></tr></thead><tbody id="'+k+'Rows"></tbody></table></div>';
+ $(k+"Search").oninput=e=>renderModule(k,e.target.value);
+}
+function renderModule(k,q){
+ const c=moduleConfig[k],b=$(k+"Rows");if(!b)return;
+ const rows=moduleCache[k].filter(r=>c.cols.some(x=>String(r[x[0]]??"").toLowerCase().includes((q||"").toLowerCase())));
+ b.innerHTML=rows.map(r=>'<tr>'+c.cols.map(x=>'<td>'+esc(r[x[0]]??"")+'</td>').join("")+'<td><button class="link-btn" data-remove="'+esc(r.id)+'">Удалить</button></td></tr>').join("")||'<tr><td colspan="'+(c.cols.length+1)+'">Записей пока нет</td></tr>';
+ b.querySelectorAll("[data-remove]").forEach(btn=>btn.onclick=()=>removeModule(k,btn.dataset.remove));
+}
+async function loadModule(k){
+ if(!company){moduleCache[k]=[];renderModule(k);return;}
+ const {data,error}=await db.from(moduleConfig[k].table).select("*").eq("company_id",company.id).order("created_at",{ascending:false});
+ if(error){toast("Ошибка загрузки: "+error.message);return;}moduleCache[k]=data||[];renderModule(k);
+}
+async function addModule(k){
+ if(!user||!company){toast("Сначала войдите и создайте компанию.");return;}
+ const r={company_id:company.id};
+ if(k==="products"){
+  const name=prompt("Название товара:");if(!name?.trim())return;
+  Object.assign(r,{name:name.trim(),sku:prompt("Артикул:")||"",category:prompt("Категория:")||"Другое",quantity:Number(prompt("Количество:","0")),price:Number(prompt("Цена за единицу (€):","0"))});
+ }else if(k==="customers"){
+  const name=prompt("Имя клиента / название компании:");if(!name?.trim())return;
+  Object.assign(r,{name:name.trim(),company_name:prompt("Компания:")||"",email:prompt("Email:")||"",phone:prompt("Телефон:")||""});
+ }else{
+  const name=prompt("Название документа:");if(!name?.trim())return;
+  Object.assign(r,{name:name.trim(),kind:prompt("Тип документа:","Счёт")||"Другое",notes:prompt("Описание или ссылка на файл:")||""});
+ }
+ if((k==="products")&&(!Number.isFinite(r.quantity)||r.quantity<0||!Number.isFinite(r.price)||r.price<0)){toast("Количество и цена должны быть неотрицательными числами.");return;}
+ const {error}=await db.from(moduleConfig[k].table).insert(r);if(error){toast("Ошибка сохранения: "+error.message);return;}
+ await loadModule(k);toast("Сохранено в облачной базе.");
+}
+async function removeModule(k,id){
+ if(!confirm("Удалить запись?"))return;
+ const {error}=await db.from(moduleConfig[k].table).delete().eq("id",id).eq("company_id",company.id);
+ if(error){toast("Ошибка удаления: "+error.message);return;}await loadModule(k);toast("Запись удалена.");
+}
+function installModules(){
+ ["products","customers","documents"].forEach(setupModule);
+ if($("addProduct"))$("addProduct").onclick=()=>addModule("products");
+ if($("addCustomer"))$("addCustomer").onclick=()=>addModule("customers");
+ if($("addDocument"))$("addDocument").onclick=()=>addModule("documents");
+ if($("helpBtn"))$("helpBtn").onclick=()=>alert("Profit Radar: создайте аккаунт и компанию, затем добавляйте операции, товары и клиентов. Экспорт финансов доступен в аналитике.");
+ if($("searchBtn"))$("searchBtn").onclick=()=>{const q=prompt("Поиск по операциям, товарам и клиентам:");if(!q)return;const a=[];transactions.filter(x=>(x.name+" "+(x.category||"")).toLowerCase().includes(q.toLowerCase())).forEach(x=>a.push("Финансы: "+x.name));Object.keys(moduleCache).forEach(k=>moduleCache[k].filter(x=>JSON.stringify(x).toLowerCase().includes(q.toLowerCase())).forEach(x=>a.push(k+": "+x.name)));alert(a.join("\n")||"Ничего не найдено.");};
+ const bell=document.querySelector(".notification");if(bell)bell.onclick=()=>alert(user?"Новых уведомлений пока нет.":"Войдите в аккаунт, чтобы использовать уведомления.");
+ const avatar=document.querySelector(".top-avatar");if(avatar)avatar.onclick=authFlow;
+}
+const originalLoadCompany=loadCompany;
+loadCompany=async function(){await originalLoadCompany();if(company)await Promise.all(["products","customers","documents"].map(loadModule));};
+installModules();
+
 // Запуск
 async function init() {
   updateProfile();
