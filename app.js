@@ -65,24 +65,41 @@ document.querySelectorAll(".demo-pill").forEach(el => {
 
 function showForm(title, description, fields, submitText="Сохранить") {
   return new Promise(resolve => {
-    const backdrop = $("nativeFormBackdrop"), form = $("nativeForm");
-    const heading = $("nativeFormTitle"), copy = $("nativeFormDescription");
-    const submit = $("nativeFormSubmit");
-    if (!backdrop || !form) { toast("Не удалось открыть форму."); resolve(null); return; }
-
-    // Create fresh visible native controls; never reuse hidden inputs.
-    form.replaceChildren();
+    // Build a fresh dialog in the document; do not reuse or move hidden form controls.
+    const backdrop = document.createElement("div");
+    backdrop.className = "pr-form-backdrop";
+    backdrop.setAttribute("role","presentation");
+    const card = document.createElement("div");
+    card.className = "pr-form-card";
+    card.setAttribute("role","dialog");
+    card.setAttribute("aria-modal","true");
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "pr-form-close";
+    closeButton.setAttribute("aria-label","Закрыть");
+    closeButton.textContent = "×";
+    const kicker = document.createElement("div");
+    kicker.className = "pr-form-kicker";
+    kicker.textContent = "PROFIT RADAR";
+    const heading = document.createElement("h2");
+    heading.textContent = title;
+    const copy = document.createElement("p");
+    copy.textContent = description || "Заполните поля ниже.";
+    const form = document.createElement("form");
+    form.className = "pr-form";
+    form.autocomplete = "on";
     const controls = [];
     fields.forEach(field => {
       const label = document.createElement("label");
       label.className = "pr-field";
-      label.append(document.createTextNode(field.label));
+      label.appendChild(document.createTextNode(field.label));
       let control;
       if (field.type === "select") {
         control = document.createElement("select");
         (field.options || []).forEach(item => {
           const option = document.createElement("option");
-          option.value = item.value; option.textContent = item.label;
+          option.value = item.value;
+          option.textContent = item.label;
           option.selected = item.value === field.value;
           control.appendChild(option);
         });
@@ -98,40 +115,42 @@ function showForm(title, description, fields, submitText="Сохранить") {
       }
       control.name = field.name;
       control.required = !!field.required;
-      label.appendChild(control); form.appendChild(label);
-      controls.push({field, control});
+      control.disabled = false;
+      control.readOnly = false;
+      label.appendChild(control);
+      form.appendChild(label);
+      controls.push({field,control});
     });
-    heading.textContent = title;
-    copy.textContent = description || "Заполните поля ниже.";
-    submit.textContent = submitText; form.appendChild(submit);
-    backdrop.hidden = false; backdrop.style.display = "flex";
-    backdrop.setAttribute("aria-hidden", "false");
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.className = "pr-form-submit";
+    submit.textContent = submitText;
+    form.appendChild(submit);
+    card.append(closeButton,kicker,heading,copy,form);
+    backdrop.appendChild(card);
+    document.body.appendChild(backdrop);
 
     let finished = false;
     const close = value => {
-      if (finished) return; finished = true;
-      backdrop.hidden = true; backdrop.style.display = "none";
-      backdrop.setAttribute("aria-hidden", "true");
-      form.removeEventListener("submit", onSubmit);
-      backdrop.removeEventListener("click", onBackdropClick);
-      $("nativeFormClose").removeEventListener("click", onClose);
+      if (finished) return;
+      finished = true;
+      backdrop.remove();
       resolve(value);
     };
-    const onClose = () => close(null);
-    const onBackdropClick = event => { if (event.target === backdrop) close(null); };
-    const onSubmit = event => {
+    closeButton.addEventListener("click",() => close(null));
+    backdrop.addEventListener("click",event => {
+      if (event.target === backdrop) close(null);
+    });
+    form.addEventListener("submit",event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const values = {};
-      controls.forEach(({field, control}) => {
+      controls.forEach(({field,control}) => {
         values[field.name] = field.type === "number" ? Number(control.value)
-          : field.type === "password" ? control.value : control.value.trim();
+          : control.value.trim();
       });
       close(values);
-    };
-    $("nativeFormClose").addEventListener("click", onClose);
-    backdrop.addEventListener("click", onBackdropClick);
-    form.addEventListener("submit", onSubmit);
+    });
   });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
