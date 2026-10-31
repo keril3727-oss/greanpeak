@@ -22,10 +22,7 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({
 
 function toast(message) {
   const el = $("toast");
-  if (!el) {
-    alert(message);
-    return;
-  }
+  if (!el) { console.info(message); return; }
   el.textContent = message;
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 3000);
@@ -63,6 +60,26 @@ document.querySelectorAll(".demo-pill").forEach(el => {
   el.textContent = "ОБЛАЧНЫЕ ДАННЫЕ";
 });
 
+
+function showForm(title, description, fields, submitText="Сохранить") {
+ return new Promise(resolve=>{
+  document.querySelector(".pr-form-backdrop")?.remove();
+  const backdrop=document.createElement("div");backdrop.className="pr-form-backdrop";
+  const inputs=fields.map((f,i)=>{const id="pr-field-"+i;
+   if(f.type==="select")return '<label class="pr-field" for="'+id+'">'+esc(f.label)+'<select id="'+id+'" '+(f.required?"required":"")+'>'+f.options.map(o=>'<option value="'+esc(o.value)+'" '+(o.value===f.value?"selected":"")+'>'+esc(o.label)+'</option>').join("")+'</select></label>';
+   return '<label class="pr-field" for="'+id+'">'+esc(f.label)+'<input id="'+id+'" type="'+(f.type||"text")+'" placeholder="'+esc(f.placeholder||"")+'" value="'+esc(f.value??"")+'" '+(f.required?"required":"")+' '+(f.min!==undefined?'min="'+f.min+'"':"")+' '+(f.step!==undefined?'step="'+f.step+'"':"")+' '+(f.autocomplete?'autocomplete="'+f.autocomplete+'"':"")+' '+(f.inputmode?'inputmode="'+f.inputmode+'"':"")+'></label>';
+  }).join("");
+  backdrop.innerHTML='<div class="pr-form-card" role="dialog" aria-modal="true"><button type="button" class="pr-form-close">×</button><div class="pr-form-kicker">PROFIT RADAR</div><h2>'+esc(title)+'</h2><p>'+esc(description||"Заполните поля ниже.")+'</p><form class="pr-form">'+inputs+'<button class="pr-form-submit" type="submit">'+esc(submitText)+'</button></form></div>';
+  document.body.appendChild(backdrop);
+  const close=()=>{backdrop.remove();resolve(null);};
+  backdrop.querySelector(".pr-form-close").onclick=close;backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
+  backdrop.querySelector("form").onsubmit=e=>{e.preventDefault();const values={};fields.forEach((f,i)=>{const el=backdrop.querySelector("#pr-field-"+i);values[f.name]=f.type==="number"?Number(el.value):el.value.trim();});backdrop.remove();resolve(values);};
+  setTimeout(()=>backdrop.querySelector("input,select")?.focus(),180);
+ });
+}
+function showConfirm(title,description,confirmText="Подтвердить"){
+ return new Promise(resolve=>{const b=document.createElement("div");b.className="pr-form-backdrop";b.innerHTML='<div class="pr-form-card" role="dialog" aria-modal="true"><button class="pr-form-close" type="button">×</button><div class="pr-form-kicker">PROFIT RADAR</div><h2>'+esc(title)+'</h2><p>'+esc(description)+'</p><div class="pr-form-actions"><button type="button" class="pr-form-cancel">Отмена</button><button type="button" class="pr-form-submit">'+esc(confirmText)+'</button></div></div>';document.body.appendChild(b);const done=v=>{b.remove();resolve(v);};b.querySelector(".pr-form-close").onclick=()=>done(false);b.querySelector(".pr-form-cancel").onclick=()=>done(false);b.querySelector(".pr-form-submit").onclick=()=>done(true);b.addEventListener("click",e=>{if(e.target===b)done(false);});});
+}
 // Аккаунт
 function updateProfile() {
   if ($("profileName"))
@@ -72,84 +89,21 @@ function updateProfile() {
     $("profileEmail").textContent = user?.email || "Войдите в аккаунт";
 }
 
-async function authFlow() {
-  const choice = prompt("Аккаунт Profit Radar:\n1 — Войти\n2 — Создать аккаунт\n3 — Восстановить пароль");
-  if (choice === "1") return login();
-  if (choice === "2") return signUp();
-  if (choice === "3") return resetPassword();
-  if (choice !== null) toast("Выберите 1, 2 или 3.");
+async function authFlow(){
+ const v=await showForm("Ваш аккаунт","Выберите действие.",[{name:"action",label:"Что хотите сделать?",type:"select",value:"login",options:[{value:"login",label:"Войти"},{value:"signup",label:"Создать аккаунт"},{value:"reset",label:"Восстановить пароль"}]}],"Продолжить");if(!v)return;
+ if(v.action==="login")return login();if(v.action==="signup")return signUp();return resetPassword();
 }
-
-async function login() {
-  const email = prompt("Введите email аккаунта:");
-  if (!email?.trim()) return;
-  const password = prompt("Введите пароль:");
-  if (!password) return;
-
-  const {data,error} = await db.auth.signInWithPassword({
-    email: email.trim().toLowerCase(),
-    password
-  });
-
-  if (error) {
-    const message = error.message.toLowerCase().includes("invalid login credentials")
-      ? "Неверный email или пароль. Если аккаунта ещё нет, выберите «Создать аккаунт»."
-      : error.message;
-    toast("Ошибка входа: " + message);
-    return;
-  }
-
-  user = data.user;
-  updateProfile();
-  await loadCompany();
-  toast("Вы успешно вошли!");
+async function login(){const v=await showForm("Вход в аккаунт","Введите данные вашего аккаунта.",[{name:"email",label:"Email",type:"email",required:true,autocomplete:"email",inputmode:"email",placeholder:"name@example.com"},{name:"password",label:"Пароль",type:"password",required:true,autocomplete:"current-password"}],"Войти");if(!v)return;
+ const {data,error}=await db.auth.signInWithPassword({email:v.email.toLowerCase(),password:v.password});
+ if(error){const m=error.message.toLowerCase().includes("invalid login credentials")?"Неверный email или пароль. Если аккаунта ещё нет, выберите «Создать аккаунт».":error.message;toast("Ошибка входа: "+m);return;}user=data.user;updateProfile();await loadCompany();toast("Вы успешно вошли!");
 }
-
-async function signUp() {
-  const email = prompt("Введите email для нового аккаунта:");
-  if (!email?.trim()) return;
-  const password = prompt("Придумайте пароль (минимум 6 символов):");
-  if (!password) return;
-  if (password.length < 6) {
-    toast("Пароль должен содержать минимум 6 символов.");
-    return;
-  }
-
-  const {data,error} = await db.auth.signUp({
-    email: email.trim().toLowerCase(),
-    password,
-    options: { emailRedirectTo: window.location.origin }
-  });
-
-  if (error) {
-    const message = error.message.toLowerCase().includes("already registered")
-      ? "Этот email уже зарегистрирован. Выберите «Войти» или восстановите пароль."
-      : error.message;
-    toast("Ошибка регистрации: " + message);
-    return;
-  }
-
-  if (data.session && data.user) {
-    user = data.user;
-    updateProfile();
-    toast("Аккаунт создан. Выполняю вход…");
-    await loadCompany();
-  } else {
-    toast("Аккаунт почти готов! Откройте письмо от Supabase и подтвердите email, затем войдите.");
-  }
+async function signUp(){const v=await showForm("Создать аккаунт","Укажите email и придумайте пароль от 6 символов.",[{name:"email",label:"Email",type:"email",required:true,autocomplete:"email",inputmode:"email",placeholder:"name@example.com"},{name:"password",label:"Пароль",type:"password",required:true,autocomplete:"new-password"}],"Создать аккаунт");if(!v)return;
+ if(v.password.length<6){toast("Пароль должен содержать минимум 6 символов.");return;}const {data,error}=await db.auth.signUp({email:v.email.toLowerCase(),password:v.password,options:{emailRedirectTo:window.location.origin}});
+ if(error){const m=error.message.toLowerCase().includes("already registered")?"Этот email уже зарегистрирован. Выберите «Войти» или восстановите пароль.":error.message;toast("Ошибка регистрации: "+m);return;}
+ if(data.session&&data.user){user=data.user;updateProfile();toast("Аккаунт создан. Выполняю вход…");await loadCompany();}else toast("Аккаунт почти готов! Откройте письмо от Supabase и подтвердите email, затем войдите.");
 }
-
-async function resetPassword() {
-  const email = prompt("Введите email аккаунта для восстановления пароля:");
-  if (!email?.trim()) return;
-  const {error} = await db.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
-    redirectTo: window.location.origin
-  });
-  if (error) {
-    toast("Ошибка восстановления: " + error.message);
-    return;
-  }
-  toast("Письмо для восстановления пароля отправлено на вашу почту.");
+async function resetPassword(){const v=await showForm("Восстановить пароль","Отправим ссылку для восстановления на вашу почту.",[{name:"email",label:"Email аккаунта",type:"email",required:true,autocomplete:"email",inputmode:"email"}],"Отправить ссылку");if(!v)return;
+ const {error}=await db.auth.resetPasswordForEmail(v.email.toLowerCase(),{redirectTo:window.location.origin});if(error){toast("Ошибка восстановления: "+error.message);return;}toast("Письмо для восстановления пароля отправлено на вашу почту.");
 }
 
 // Создание и загрузка компании
@@ -184,7 +138,7 @@ async function loadCompany() {
     company = null;
     updateWorkspace();
 
-    if (confirm("Компания ещё не создана. Создать сейчас?")) {
+    if (await showConfirm("Компания ещё не создана","Создать рабочее пространство для вашего бизнеса?","Создать компанию")) {
       await createCompany();
     }
     return;
@@ -212,8 +166,7 @@ async function createCompany() {
     return;
   }
 
-  const name = prompt("Название компании:");
-  if (!name?.trim()) return;
+  const values=await showForm("Новая компания","Создайте рабочее пространство для учёта бизнеса.",[{name:"name",label:"Название компании",required:true,placeholder:"Например, Coffee Point"}],"Создать компанию");if(!values)return;const name=values.name;
 
   const {data,error} = await db
     .from("companies")
@@ -475,14 +428,7 @@ function renderTasks() {
   });
 }
 
-function addTask() {
-  const name = prompt("Название задачи:");
-  if (!name?.trim()) return;
-
-  tasks.push({name:name.trim(),done:false});
-  localStorage.setItem("pr_tasks",JSON.stringify(tasks));
-  renderTasks();
-}
+async function addTask(){const v=await showForm("Новая задача","Добавьте дело в планирование.",[{name:"name",label:"Название задачи",required:true,placeholder:"Например, проверить выручку"}],"Добавить задачу");if(!v)return;tasks.push({name:v.name,done:false});localStorage.setItem("pr_tasks",JSON.stringify(tasks));renderTasks();}
 
 if ($("addTask")) $("addTask").onclick = addTask;
 if ($("planningTask")) $("planningTask").onclick = addTask;
@@ -538,34 +484,25 @@ async function loadModule(k){
 }
 async function addModule(k){
  if(!user||!company){toast("Сначала войдите и создайте компанию.");return;}
- const r={company_id:company.id};
- if(k==="products"){
-  const name=prompt("Название товара:");if(!name?.trim())return;
-  Object.assign(r,{name:name.trim(),sku:prompt("Артикул:")||"",category:prompt("Категория:")||"Другое",quantity:Number(prompt("Количество:","0")),price:Number(prompt("Цена за единицу (€):","0"))});
- }else if(k==="customers"){
-  const name=prompt("Имя клиента / название компании:");if(!name?.trim())return;
-  Object.assign(r,{name:name.trim(),company_name:prompt("Компания:")||"",email:prompt("Email:")||"",phone:prompt("Телефон:")||""});
- }else{
-  const name=prompt("Название документа:");if(!name?.trim())return;
-  Object.assign(r,{name:name.trim(),kind:prompt("Тип документа:","Счёт")||"Другое",notes:prompt("Описание или ссылка на файл:")||""});
- }
- if((k==="products")&&(!Number.isFinite(r.quantity)||r.quantity<0||!Number.isFinite(r.price)||r.price<0)){toast("Количество и цена должны быть неотрицательными числами.");return;}
- const {error}=await db.from(moduleConfig[k].table).insert(r);if(error){toast("Ошибка сохранения: "+error.message);return;}
- await loadModule(k);toast("Сохранено в облачной базе.");
+ let fields=[],title="";
+ if(k==="products"){title="Новый товар";fields=[{name:"name",label:"Название товара",required:true},{name:"sku",label:"Артикул"},{name:"category",label:"Категория"},{name:"quantity",label:"Количество",type:"number",required:true,min:0,step:"1",value:0,inputmode:"decimal"},{name:"price",label:"Цена за единицу (€)",type:"number",required:true,min:0,step:"0.01",value:0,inputmode:"decimal"}];}
+ else if(k==="customers"){title="Новый клиент";fields=[{name:"name",label:"Имя клиента / компания",required:true},{name:"company_name",label:"Компания"},{name:"email",label:"Email",type:"email",inputmode:"email"},{name:"phone",label:"Телефон",type:"tel",inputmode:"tel"}];}
+ else{title="Новый документ";fields=[{name:"name",label:"Название документа",required:true},{name:"kind",label:"Тип документа",value:"Счёт"},{name:"notes",label:"Описание или ссылка"}];}
+ const v=await showForm(title,"Данные сохранятся в облачной базе компании.",fields,"Сохранить");if(!v)return;const r={company_id:company.id,...v};
+ if(k==="products"&&(!Number.isFinite(r.quantity)||r.quantity<0||!Number.isFinite(r.price)||r.price<0)){toast("Количество и цена должны быть неотрицательными числами.");return;}
+ if(k==="products")r.category=r.category||"Другое";if(k==="documents")r.kind=r.kind||"Другое";
+ const {error}=await db.from(moduleConfig[k].table).insert(r);if(error){toast("Ошибка сохранения: "+error.message);return;}await loadModule(k);toast("Сохранено в облачной базе.");
 }
-async function removeModule(k,id){
- if(!confirm("Удалить запись?"))return;
- const {error}=await db.from(moduleConfig[k].table).delete().eq("id",id).eq("company_id",company.id);
- if(error){toast("Ошибка удаления: "+error.message);return;}await loadModule(k);toast("Запись удалена.");
-}
+async function removeModule(k,id){if(!await showConfirm("Удалить запись?","Эту запись нельзя будет восстановить.","Удалить"))return;const {error}=await db.from(moduleConfig[k].table).delete().eq("id",id).eq("company_id",company.id);if(error){toast("Ошибка удаления: "+error.message);return;}await loadModule(k);toast("Запись удалена.");}
+
 function installModules(){
  ["products","customers","documents"].forEach(setupModule);
  if($("addProduct"))$("addProduct").onclick=()=>addModule("products");
  if($("addCustomer"))$("addCustomer").onclick=()=>addModule("customers");
  if($("addDocument"))$("addDocument").onclick=()=>addModule("documents");
- if($("helpBtn"))$("helpBtn").onclick=()=>alert("Profit Radar: создайте аккаунт и компанию, затем добавляйте операции, товары и клиентов. Экспорт финансов доступен в аналитике.");
- if($("searchBtn"))$("searchBtn").onclick=()=>{const q=prompt("Поиск по операциям, товарам и клиентам:");if(!q)return;const a=[];transactions.filter(x=>(x.name+" "+(x.category||"")).toLowerCase().includes(q.toLowerCase())).forEach(x=>a.push("Финансы: "+x.name));Object.keys(moduleCache).forEach(k=>moduleCache[k].filter(x=>JSON.stringify(x).toLowerCase().includes(q.toLowerCase())).forEach(x=>a.push(k+": "+x.name)));alert(a.join("\n")||"Ничего не найдено.");};
- const bell=document.querySelector(".notification");if(bell)bell.onclick=()=>alert(user?"Новых уведомлений пока нет.":"Войдите в аккаунт, чтобы использовать уведомления.");
+ if($("helpBtn"))$("helpBtn").onclick=()=>toast("Создайте аккаунт и компанию, затем добавляйте операции, товары и клиентов. Экспорт доступен в аналитике.");
+ if($("searchBtn"))$("searchBtn").onclick=async()=>{const v=await showForm("Поиск","Найдите операции, товары или клиентов.",[{name:"q",label:"Что ищем?",required:true}],"Найти");if(!v)return;const q=v.q.toLowerCase(),found=[];transactions.filter(x=>(x.name+" "+(x.category||"")).toLowerCase().includes(q)).forEach(x=>found.push("Финансы: "+x.name));Object.keys(moduleCache).forEach(k=>moduleCache[k].filter(x=>JSON.stringify(x).toLowerCase().includes(q)).forEach(x=>found.push(k+": "+x.name)));toast(found.length?found.slice(0,3).join(" • "):"Ничего не найдено.");};
+ const bell=document.querySelector(".notification");if(bell)bell.onclick=()=>toast(user?"Новых уведомлений пока нет.":"Войдите в аккаунт, чтобы использовать уведомления.");
  const avatar=document.querySelector(".top-avatar");if(avatar)avatar.onclick=authFlow;
 }
 const originalLoadCompany=loadCompany;
