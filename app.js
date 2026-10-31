@@ -426,8 +426,8 @@ if ($("menuBtn")) {
   $("menuBtn").onclick = () => $("sidebar")?.classList.toggle("open");
 }
 
-if ($("authBtn")) $("authBtn").onclick = login;
-if ($("settingsAuth")) $("settingsAuth").onclick = login;
+if ($("authBtn")) $("authBtn").onclick = authFlow;
+if ($("settingsAuth")) $("settingsAuth").onclick = authFlow;
 
 if ($("operationForm")) {
   $("operationForm").addEventListener("submit",addTransaction);
