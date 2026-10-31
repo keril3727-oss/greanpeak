@@ -74,11 +74,9 @@ function showForm(title, description, fields, submitText="Сохранить") {
   const close=()=>{backdrop.remove();resolve(null);};
   backdrop.querySelector(".pr-form-close").onclick=close;backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
   backdrop.querySelector("form").onsubmit=e=>{e.preventDefault();const values={};fields.forEach((f,i)=>{const el=backdrop.querySelector("#pr-field-"+i);values[f.name]=f.type==="number"?Number(el.value):el.value.trim();});backdrop.remove();resolve(values);};
-  const firstInput=backdrop.querySelector("input");
-  if(firstInput){
-   if(!firstInput.hasAttribute("inputmode") && firstInput.type==="text") firstInput.setAttribute("inputmode","text");
-   setTimeout(()=>{firstInput.focus({preventScroll:false});},350);
-  }
+  // На мобильных браузерах не вызываем focus() автоматически:
+  // это может открыть системную панель/буфер обмена вместо клавиатуры.
+  // Пользователь сам выбирает поле и открывает клавиатуру касанием.
  });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
