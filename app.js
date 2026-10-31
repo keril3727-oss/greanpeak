@@ -245,6 +245,33 @@ function renderFinance() {
   }
 
   renderFinanceRows();
+  renderAnalytics();
+}
+
+function renderAnalytics() {
+  const income = transactions.filter(x => x.type === "income").reduce((s,x) => s + Number(x.amount || 0),0);
+  const expense = transactions.filter(x => x.type === "expense").reduce((s,x) => s + Number(x.amount || 0),0);
+  const profit = income - expense;
+  const incomeOps = transactions.filter(x => x.type === "income");
+  const margin = income > 0 ? (profit / income * 100) : 0;
+  const average = incomeOps.length ? income / incomeOps.length : 0;
+  const set = (id,value) => { if ($(id)) $(id).textContent = value; };
+  set("analyticsMargin", income > 0 ? margin.toLocaleString("ru-RU",{maximumFractionDigits:1}) + "%" : "—");
+  set("analyticsAverage", incomeOps.length ? money(average) : "—");
+  set("analyticsConversion", "Нет данных");
+  set("analyticsRevenue", money(income));
+  set("analyticsProfit", money(profit));
+  set("analyticsExpense", money(expense));
+  set("analyticsSalesPlan", "—");
+  const bars = $("analyticsBars");
+  if (bars) {
+    const max = Math.max(income,expense,Math.abs(profit),1);
+    bars.querySelectorAll("[data-analytics-bar]").forEach(el => {
+      const key = el.dataset.analyticsBar;
+      const value = key === "income" ? income : key === "profit" ? Math.max(0,profit) : expense;
+      el.style.setProperty("--w", Math.max(0,Math.min(100,value/max*100)) + "%");
+    });
+  }
 }
 
 function renderFinanceRows(query = "") {
