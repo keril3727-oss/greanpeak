@@ -65,41 +65,43 @@ document.querySelectorAll(".demo-pill").forEach(el => {
 
 function showForm(title, description, fields, submitText="Сохранить") {
   return new Promise(resolve => {
-    // Use the browser's native dialog/top layer. Native inputs keep their
-    // normal Android tap-to-focus and keyboard behavior.
-    const dialog = document.createElement("dialog");
-    dialog.className = "pr-native-dialog";
-    dialog.setAttribute("aria-labelledby","pr-dialog-title");
+    // Forms are rendered as a normal page in the document flow.
+    // No dialog, fixed overlay, transform, or focus trap: Android WebView
+    // receives a direct tap on a real, visible input element.
+    const shell = document.querySelector(".app-shell");
+    if (shell) shell.hidden = true;
 
-    const card = document.createElement("div");
-    card.className = "pr-native-card";
+    const screen = document.createElement("main");
+    screen.className = "pr-form-screen";
+    screen.setAttribute("aria-labelledby","pr-form-title");
 
-    const closeButton = document.createElement("button");
-    closeButton.type = "button";
-    closeButton.className = "pr-form-close";
-    closeButton.setAttribute("aria-label","Закрыть");
-    closeButton.textContent = "×";
+    const header = document.createElement("header");
+    header.className = "pr-form-header";
+    header.innerHTML = '<span class="pr-form-brand">PROFIT RADAR</span>';
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "pr-form-back";
+    back.textContent = "← Назад";
+    header.appendChild(back);
 
-    const kicker = document.createElement("div");
-    kicker.className = "pr-form-kicker";
-    kicker.textContent = "PROFIT RADAR";
-
-    const heading = document.createElement("h2");
-    heading.id = "pr-dialog-title";
+    const card = document.createElement("section");
+    card.className = "pr-form-card";
+    const heading = document.createElement("h1");
+    heading.id = "pr-form-title";
     heading.textContent = title;
-
     const copy = document.createElement("p");
     copy.textContent = description || "Заполните поля ниже.";
-
     const form = document.createElement("form");
     form.className = "pr-form";
     form.autocomplete = "on";
     const controls = [];
 
-    fields.forEach(field => {
+    fields.forEach((field,index) => {
       const label = document.createElement("label");
       label.className = "pr-field";
-      label.appendChild(document.createTextNode(field.label));
+      const caption = document.createElement("span");
+      caption.textContent = field.label;
+      label.appendChild(caption);
       let control;
 
       if (field.type === "select") {
@@ -117,64 +119,55 @@ function showForm(title, description, fields, submitText="Сохранить") {
         control.placeholder = field.placeholder || "";
         control.value = field.value ?? "";
         control.autocomplete = field.autocomplete || "off";
-        control.inputMode = field.inputmode || "text";
+        control.inputMode = field.inputmode || (field.type === "number" ? "decimal" : "text");
+        control.autocapitalize = "off";
+        control.spellcheck = false;
         if (field.min !== undefined) control.min = field.min;
         if (field.step !== undefined) control.step = field.step;
       }
-
       control.name = field.name;
       control.required = !!field.required;
+      control.setAttribute("aria-label",field.label);
       label.appendChild(control);
       form.appendChild(label);
       controls.push({field,control});
     });
 
+    const actions = document.createElement("div");
+    actions.className = "pr-form-actions";
     const submit = document.createElement("button");
     submit.type = "submit";
     submit.className = "pr-form-submit";
     submit.textContent = submitText;
-    form.appendChild(submit);
-
-    card.append(closeButton,kicker,heading,copy,form);
-    dialog.appendChild(card);
-    document.body.appendChild(dialog);
+    actions.appendChild(submit);
+    form.appendChild(actions);
+    card.append(heading,copy,form);
+    screen.append(header,card);
+    document.body.appendChild(screen);
 
     let finished = false;
     const finish = value => {
       if (finished) return;
       finished = true;
-      if (dialog.open) dialog.close();
-      dialog.remove();
+      screen.remove();
+      if (shell) shell.hidden = false;
       resolve(value);
     };
-
-    closeButton.addEventListener("click",() => finish(null));
-    dialog.addEventListener("cancel",event => {
-      event.preventDefault();
-      finish(null);
-    });
-    dialog.addEventListener("click",event => {
-      if (event.target === dialog) finish(null);
-    });
+    back.addEventListener("click",() => finish(null));
     form.addEventListener("submit",event => {
       event.preventDefault();
       if (!form.reportValidity()) return;
       const values = {};
       controls.forEach(({field,control}) => {
-        values[field.name] = field.type === "number"
-          ? Number(control.value)
-          : control.value.trim();
+        if (field.type === "number") values[field.name] = Number(control.value);
+        else values[field.name] = field.type === "password" ? control.value : control.value.trim();
       });
       finish(values);
     });
-
-    // showModal() places the dialog in the browser top layer, above page
-    // transforms/sticky headers, without a custom click-blocking overlay.
-    dialog.showModal();
   });
 }
 function showConfirm(title,description,confirmText="Подтвердить"){
- return new Promise(resolve=>{const b=document.createElement("div");b.className="pr-form-backdrop";b.innerHTML='<div class="pr-form-card" role="dialog" aria-modal="true"><button class="pr-form-close" type="button">×</button><div class="pr-form-kicker">PROFIT RADAR</div><h2>'+esc(title)+'</h2><p>'+esc(description)+'</p><div class="pr-form-actions"><button type="button" class="pr-form-cancel">Отмена</button><button type="button" class="pr-form-submit">'+esc(confirmText)+'</button></div></div>';document.body.appendChild(b);const done=v=>{b.remove();resolve(v);};b.querySelector(".pr-form-close").onclick=()=>done(false);b.querySelector(".pr-form-cancel").onclick=()=>done(false);b.querySelector(".pr-form-submit").onclick=()=>done(true);b.addEventListener("click",e=>{if(e.target===b)done(false);});});
+  return Promise.resolve(window.confirm(title + "\\n\\n" + description + "\\n\\n" + confirmText));
 }
 // Аккаунт
 function updateProfile() {
