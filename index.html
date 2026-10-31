@@ -65,6 +65,16 @@
   </main>
 </div>
 <div class="modal-backdrop" id="modalBackdrop"><div class="modal"><button class="modal-close" id="modalClose">×</button><div class="overline">GREEN PEAK</div><h2 id="modalTitle">Новая операция</h2><p id="modalDescription">Добавьте запись в рабочее пространство.</p><form id="operationForm"><label>Название<input id="opName" required placeholder="Например, Оплата от клиента"></label><div class="form-row"><label>Тип<select id="opType"><option value="income">Доход</option><option value="expense">Расход</option></select></label><label>Сумма (€)<input id="opAmount" type="number" min="0.01" step="0.01" required placeholder="0,00"></label></div><label>Категория<input id="opCategory" placeholder="Продажи, закупки…"></label><button class="btn btn-primary modal-submit" type="submit">Сохранить операцию</button></form><div class="modal-foot">Запись будет сохранена в этом браузере.</div></div></div>
+<div class="pr-form-backdrop" id="nativeFormBackdrop" hidden style="display:none">
+ <div class="pr-form-card" role="dialog" aria-modal="true" aria-labelledby="nativeFormTitle">
+  <button type="button" class="pr-form-close" id="nativeFormClose">×</button>
+  <div class="pr-form-kicker">PROFIT RADAR</div><h2 id="nativeFormTitle">Форма</h2><p id="nativeFormDescription">Заполните поля ниже.</p>
+  <form class="pr-form" id="nativeForm" autocomplete="on">
+   <label class="pr-field" id="nativeFieldLabel0">Поле <input id="nativeFieldInput0" type="text"><select id="nativeFieldSelect0" hidden disabled></select></label>\n   <label class="pr-field" id="nativeFieldLabel1">Поле <input id="nativeFieldInput1" type="text"><select id="nativeFieldSelect1" hidden disabled></select></label>\n   <label class="pr-field" id="nativeFieldLabel2">Поле <input id="nativeFieldInput2" type="text"><select id="nativeFieldSelect2" hidden disabled></select></label>\n   <label class="pr-field" id="nativeFieldLabel3">Поле <input id="nativeFieldInput3" type="text"><select id="nativeFieldSelect3" hidden disabled></select></label>\n   <label class="pr-field" id="nativeFieldLabel4">Поле <input id="nativeFieldInput4" type="text"><select id="nativeFieldSelect4" hidden disabled></select></label>
+   <button class="pr-form-submit" id="nativeFormSubmit" type="submit">Продолжить</button>
+  </form>
+ </div>
+</div>
 <div class="toast" id="toast"></div>
 <script src="app.js"></script>
 </body></html>
