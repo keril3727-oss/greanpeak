@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07100a">
+<title>Вход — Profit Radar</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:#07100a;color:#f0f7f1;font-family:Arial,sans-serif}
+body{min-height:100vh;min-height:100svh;padding:20px 16px calc(24px + env(safe-area-inset-bottom))}
+header{max-width:480px;margin:0 auto;height:58px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #203629}
+.brand{font-size:13px;font-weight:800;letter-spacing:2px;color:#48df8a}
+a{color:#9cebbb;text-decoration:none;font-size:14px}
+main{max-width:480px;margin:34px auto 0;padding:26px 20px;background:#101b13;border:1px solid #263d2c;border-radius:16px}
+h1{font-size:26px;margin:0 0 8px}
+p{color:#a5b6a9;line-height:1.5;font-size:14px;margin:0 0 24px}
+form{display:grid;gap:18px}
+label{display:grid;gap:9px;font-size:14px;font-weight:700;color:#d7e6da}
+input{display:block;width:100%;height:58px;padding:0 14px;border:1px solid #3a5742;border-radius:11px;background:#08110b;color:#fff;font:16px Arial,sans-serif;opacity:1;pointer-events:auto;touch-action:auto;appearance:none;-webkit-appearance:none}
+input:focus{outline:2px solid #48df8a;border-color:#48df8a}
+button{height:54px;border:0;border-radius:11px;background:#48df8a;color:#06140a;font-size:16px;font-weight:800}
+#message{min-height:22px;margin-top:16px;color:#b7e8c6;font-size:14px;overflow-wrap:anywhere}
+.note{margin-top:20px;font-size:12px;color:#829587}
+@media(min-width:600px){main{margin-top:52px;padding:32px}}
+</style>
+</head>
+<body>
+<header><span class="brand">PROFIT RADAR</span><a href="/">← На главную</a></header>
+<main>
+<h1>Вход в аккаунт</h1>
+<p>Введите данные аккаунта Profit Radar.</p>
+<form id="loginForm" autocomplete="on">
+<label>Email
+<input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="name@example.com" required>
+</label>
+<label>Пароль
+<input id="password" name="password" type="password" autocomplete="current-password" placeholder="Ваш пароль" required>
+</label>
+<button type="submit">Войти</button>
+</form>
+<div id="message" role="status" aria-live="polite"></div>
+<div class="note">Если клавиатура не появляется даже на этой странице, проблема может быть в браузере или настройках клавиатуры Android, а не в окнах приложения.</div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function(){
+ const client=window.supabase.createClient(
+  "https://lrwvmqdtfssxiqfyehyd.supabase.co",
+  "sb_publishable_EzTtzLmOW0dvvLA9wCwmiA_O2Zo1Uv6"
+ );
+ const form=document.getElementById("loginForm");
+ const message=document.getElementById("message");
+ form.addEventListener("submit",async function(event){
+  event.preventDefault();
+  const button=form.querySelector("button");
+  button.disabled=true;
+  message.textContent="Выполняется вход…";
+  const email=document.getElementById("email").value.trim().toLowerCase();
+  const password=document.getElementById("password").value;
+  try{
+   const result=await client.auth.signInWithPassword({email,password});
+   if(result.error) throw result.error;
+   message.textContent="Вход выполнен. Перенаправляем…";
+   window.location.replace("/");
+  }catch(error){
+   message.textContent="Не удалось войти: "+(error.message||"Проверьте данные.");
+   button.disabled=false;
+  }
+ });
+})();
+</script>
+</body>
+</html>
