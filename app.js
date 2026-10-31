@@ -412,12 +412,120 @@ async function openTransactionForm() {
   await loadTransactions(); toast("Операция сохранена!");
 }
 
+// Подписки
+let subscriptions = [];
+
+function dateOnly(date) {
+  return date.toISOString().slice(0,10);
+}
+function addBillingPeriod(dateText, period) {
+  const [year,month,day] = dateText.split("-").map(Number);
+  const targetMonth = month - 1 + (period === "yearly" ? 12 : 1);
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(Date.UTC(targetYear,normalizedMonth + 1,0)).getUTCDate();
+  return dateOnly(new Date(Date.UTC(targetYear,normalizedMonth,Math.min(day,lastDay))));
+}
+function monthlyCost(item) {
+  return Number(item.amount || 0) / (item.period === "yearly" ? 12 : 1);
+}
+function renderSubscriptions() {
+  const rows = $("subscriptionRows");
+  if (!rows) return;
+  const monthly = subscriptions.reduce((sum,item) => sum + monthlyCost(item),0);
+  if ($("subscriptionCount")) $("subscriptionCount").textContent = String(subscriptions.length);
+  if ($("subscriptionMonthly")) $("subscriptionMonthly").textContent = money(monthly);
+  if ($("subscriptionYearly")) $("subscriptionYearly").textContent = money(monthly * 12);
+  rows.innerHTML = subscriptions.map(item => `
+    <tr>
+      <td><b>${esc(item.name)}</b></td>
+      <td>${money(item.amount)}</td>
+      <td>${item.period === "yearly" ? "Ежегодно" : "Ежемесячно"}</td>
+      <td>${esc(item.next_payment_date)}</td>
+      <td><button class="link-btn" data-delete-subscription="${esc(item.id)}">Удалить</button></td>
+    </tr>`).join("") || '<tr><td colspan="5">Подписок пока нет. Нажмите «Добавить подписку».</td></tr>';
+  rows.querySelectorAll("[data-delete-subscription]").forEach(button => {
+    button.onclick = () => deleteSubscription(button.dataset.deleteSubscription);
+  });
+  const chart = $("subscriptionChart");
+  if (chart) {
+    const max = Math.max(...subscriptions.map(monthlyCost),1);
+    chart.innerHTML = subscriptions.length ? subscriptions.map(item => {
+      const value = monthlyCost(item);
+      const width = Math.max(3,value / max * 100);
+      return `<div class="subscription-bar-row"><span>${esc(item.name)}</span><div class="subscription-track"><i style="width:${width}%"></i></div><b>${money(value)} / мес.</b></div>`;
+    }).join("") : '<p class="subscription-empty">Добавьте первую подписку — здесь появится график.</p>';
+  }
+}
+async function loadSubscriptions() {
+  if (!company) { subscriptions = []; renderSubscriptions(); return; }
+  const {data,error} = await db.from("subscriptions").select("*").eq("company_id",company.id).order("next_payment_date",{ascending:true});
+  if (error) { toast("Не удалось загрузить подписки. Проверьте SQL-настройку базы: " + error.message); return; }
+  subscriptions = data || [];
+  await processDueSubscriptions();
+  renderSubscriptions();
+}
+async function processDueSubscriptions() {
+  if (!company || !subscriptions.length) return;
+  const today = dateOnly(new Date());
+  for (const item of subscriptions) {
+    let due = item.next_payment_date;
+    let guard = 0;
+    while (due <= today && guard < 24) {
+      const {error} = await db.from("transactions").upsert({
+        company_id:company.id,
+        name:"Подписка: " + item.name,
+        date:due,
+        billing_date:due,
+        subscription_id:item.id,
+        category:"Подписки",
+        type:"expense",
+        amount:Number(item.amount)
+      },{onConflict:"subscription_id,billing_date",ignoreDuplicates:true});
+      if (error) { toast("Не удалось учесть оплату подписки «" + item.name + "»: " + error.message); break; }
+      due = addBillingPeriod(due,item.period);
+      const {error:updateError} = await db.from("subscriptions").update({next_payment_date:due}).eq("id",item.id).eq("company_id",company.id);
+      if (updateError) { toast("Не удалось обновить дату подписки: " + updateError.message); break; }
+      item.next_payment_date = due;
+      guard++;
+    }
+  }
+  await loadTransactions();
+}
+async function openSubscriptionForm() {
+  if (!company || !user) { toast("Сначала войдите и создайте компанию."); return; }
+  const today = dateOnly(new Date());
+  const values = await showForm("Новая подписка","Укажите стоимость и дату следующего списания.",[
+    {name:"name",label:"Название сервиса",required:true,placeholder:"Например, интернет или CRM"},
+    {name:"amount",label:"Стоимость",type:"number",required:true,min:"0.01",step:"0.01",inputmode:"decimal",placeholder:"0,00"},
+    {name:"period",label:"Период оплаты",type:"select",value:"monthly",options:[{value:"monthly",label:"Каждый месяц"},{value:"yearly",label:"Каждый год"}]},
+    {name:"next_payment_date",label:"Дата следующей оплаты",type:"date",required:true,value:today}
+  ],"Сохранить подписку");
+  if (!values) return;
+  if (!Number.isFinite(values.amount) || values.amount <= 0) { toast("Стоимость должна быть больше нуля."); return; }
+  const {error} = await db.from("subscriptions").insert({
+    company_id:company.id,name:values.name,amount:values.amount,
+    period:values.period,next_payment_date:values.next_payment_date
+  });
+  if (error) { toast("Ошибка сохранения подписки: " + error.message); return; }
+  await loadSubscriptions();
+  toast("Подписка сохранена.");
+}
+async function deleteSubscription(id) {
+  if (!await showConfirm("Удалить подписку?","Она исчезнет из списка. Уже записанные расходы останутся в финансовой истории.","Удалить")) return;
+  const {error} = await db.from("subscriptions").delete().eq("id",id).eq("company_id",company.id);
+  if (error) { toast("Не удалось удалить подписку: " + error.message); return; }
+  await loadSubscriptions();
+  toast("Подписка удалена.");
+}
+
 // Навигация
 const titles = {
   overview:"Обзор",
   finance:"Финансы",
   inventory:"Склад",
   customers:"Клиенты",
+  subscriptions:"Подписки",
   documents:"Документы",
   analytics:"Аналитика",
   planning:"Планирование",
@@ -456,6 +564,7 @@ if ($("settingsAuth")) $("settingsAuth").onclick = authFlow;
 
 if ($("quickAdd")) $("quickAdd").onclick = openTransactionForm;
 if ($("financeAdd")) $("financeAdd").onclick = openTransactionForm;
+if ($("addSubscription")) $("addSubscription").onclick = openSubscriptionForm;
 
 if ($("modalClose")) {
   $("modalClose").onclick = () => $("modalBackdrop")?.classList.remove("open");
@@ -566,7 +675,7 @@ function installModules(){
  const avatar=document.querySelector(".top-avatar");if(avatar)avatar.onclick=authFlow;
 }
 const originalLoadCompany=loadCompany;
-loadCompany=async function(){await originalLoadCompany();if(company)await Promise.all(["products","customers","documents"].map(loadModule));};
+loadCompany=async function(){await originalLoadCompany();if(company){await Promise.all(["products","customers","documents"].map(loadModule));await loadSubscriptions();}else{subscriptions=[];renderSubscriptions();}};
 installModules();
 
 // Запуск
