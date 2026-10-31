@@ -7,14 +7,7 @@ const SUPABASE_KEY = "sb_publishable_EzTtzLmOW0dvvLA9wCwmiA_O2Zo1Uv6";
 const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = id => document.getElementById(id);
 
-// Android: give the native keyboard a direct user-gesture focus on every editable field.
-// This runs synchronously during the user's tap (not later in a timer or async callback).
-document.addEventListener("pointerdown", event => {
-  const field = event.target.closest("input:not([type=checkbox]):not([type=radio]), textarea");
-  if (!field || field.disabled || field.readOnly) return;
-  try { field.focus({ preventScroll: false }); } catch (_) { field.focus(); }
-}, true);
-
+// Keep native browser focus behavior so Android opens the keyboard from a real tap.
 
 let user = null;
 let company = null;
