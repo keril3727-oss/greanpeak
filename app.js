@@ -1,1 +1,41 @@
-(()=>{const $=id=>document.getElementById(id);window.Telegram?.WebApp?.ready();window.Telegram?.WebApp?.expand();const demo=[['m1','Город будущего',2025,'Фантастика','Фильм','История о мире будущего.','https://images.unsplash.com/photo-1519608487953-e999c86e7455?auto=format&fit=crop&w=500'],['m2','Последний рубеж',2024,'Боевик','Фильм','История о смелости и выборе.','https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=500'],['m3','После полуночи',2025,'Драма','Сериал','Новая история начинается ночью.','https://images.unsplash.com/photo-1518837695005-2083093ee35b?auto=format&fit=crop&w=500'],['m4','Смешной случай',2023,'Комедия','Фильм','Лёгкая комедия на вечер.','https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=500']].map(a=>({id:a[0],title:a[1],year:a[2],genre:a[3],type:a[4],desc:a[5],poster:a[6],video:''}));let data=JSON.parse(localStorage.getItem('radar_items')||'null')||demo,saved=JSON.parse(localStorage.getItem('radar_saved')||'[]'),genre='Все';const card=x=>'<div class="movie" data-id="'+x.id+'"><div class="poster"><img src="'+x.poster+'"></div><h3>'+x.title+'</h3><p>'+x.year+' · '+x.genre+'</p></div>';function draw(){let q=$('search').value.toLowerCase(),a=data.filter(x=>(genre==='Все'||x.genre===genre)&&x.title.toLowerCase().includes(q));$('catalog').innerHTML=a.filter(x=>x.type==='Фильм').map(card).join('')||'<p>Пока нет фильмов</p>';$('seriesGrid').innerHTML=data.filter(x=>x.type==='Сериал').map(card).join('')||'<p>Сериалы появятся здесь</p>';$('savedGrid').innerHTML=data.filter(x=>saved.includes(x.id)).map(card).join('')||'<p>Здесь будут избранные фильмы</p>'}function open(id){let x=data.find(a=>a.id===id);$('detail').innerHTML='<div class="detail"><img src="'+x.poster+'"><div><h2>'+x.title+'</h2><small>'+x.year+' · '+x.genre+' · '+x.type+'</small><p>'+x.desc+'</p><button id="watch">▶ Смотреть</button><button id="fav">☆ Избранное</button></div></div>';$('modal').classList.add('open');$('player').style.display='none';$('watch').onclick=()=>{if(!x.video){alert('Видео ещё не загружено.');return}$('player').src=x.video;$('player').style.display='block';$('player').play()};$('fav').onclick=()=>{saved=saved.includes(id)?saved.filter(v=>v!==id):[...saved,id];localStorage.setItem('radar_saved',JSON.stringify(saved));draw()}}document.addEventListener('click',e=>{let m=e.target.closest('.movie');if(m)open(m.dataset.id)});$('close').onclick=()=>$('modal').classList.remove('open');$('search').oninput=draw;$('searchOpen').onclick=()=>$('search').focus();$('genres').onclick=e=>{let b=e.target.closest('[data-g]');if(!b)return;genre=b.dataset.g;document.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('active',x===b));draw()};draw()})();
+(()=>{
+const $=id=>document.getElementById(id);
+window.Telegram?.WebApp?.ready();window.Telegram?.WebApp?.expand();
+const {url,key}=window.RADAR_CONFIG||{};
+const db=window.supabase?.createClient(url,key);
+let data=[],saved=JSON.parse(localStorage.getItem('radar_saved')||'[]'),genre='Все';
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const posterUrl=path=>path?db.storage.from('radar-posters').getPublicUrl(path).data.publicUrl:'';
+function mapMovie(x){return {...x,poster:posterUrl(x.poster_path)}}
+const card=x=>'<div class="movie" data-id="'+esc(x.id)+'"><div class="poster"><img loading="lazy" src="'+esc(x.poster)+'" alt="'+esc(x.title)+'"></div><h3>'+esc(x.title)+'</h3><p>'+esc(x.release_year||'')+' · '+esc(x.genre)+'</p></div>';
+function draw(){
+ const q=$('search').value.toLowerCase();
+ const filtered=data.filter(x=>(genre==='Все'||x.genre===genre)&&x.title.toLowerCase().includes(q));
+ $('catalog').innerHTML=filtered.filter(x=>x.type==='Фильм').map(card).join('')||'<p>Фильмы пока не опубликованы.</p>';
+ $('seriesGrid').innerHTML=data.filter(x=>x.type==='Сериал').map(card).join('')||'<p>Сериалы появятся здесь.</p>';
+ $('savedGrid').innerHTML=data.filter(x=>saved.includes(x.id)).map(card).join('')||'<p>Здесь будут избранные фильмы.</p>';
+}
+async function load(){
+ if(!db){$('catalog').innerHTML='<p>Не удалось подключиться к каталогу.</p>';return}
+ const {data:rows,error}=await db.from('movies').select('id,title,description,genre,release_year,poster_path,video_path,duration_minutes,type,is_published').eq('is_published',true).order('created_at',{ascending:false});
+ if(error){$('catalog').innerHTML='<p>Ошибка загрузки каталога. Попробуйте позже.</p>';console.error(error);return}
+ data=(rows||[]).map(mapMovie);draw();
+}
+async function open(id){
+ const x=data.find(a=>a.id===id);if(!x)return;
+ $('detail').innerHTML='<div class="detail"><img src="'+esc(x.poster)+'" alt="'+esc(x.title)+'"><div><h2>'+esc(x.title)+'</h2><small>'+esc(x.release_year||'')+' · '+esc(x.genre)+' · '+esc(x.type)+'</small><p>'+esc(x.description)+'</p><button id="watch">▶ Смотреть</button><button id="fav">☆ Избранное</button></div></div>';
+ $('modal').classList.add('open');$('player').pause();$('player').removeAttribute('src');$('player').style.display='none';
+ $('watch').onclick=async()=>{
+  if(!x.video_path){alert('Видео ещё не добавлено.');return}
+  const {data:link,error}=await db.storage.from('radar-videos').createSignedUrl(x.video_path,3600);
+  if(error||!link?.signedUrl){alert('Не удалось открыть видео.');return}
+  $('player').src=link.signedUrl;$('player').style.display='block';$('player').play().catch(()=>{});
+ };
+ $('fav').onclick=()=>{saved=saved.includes(id)?saved.filter(v=>v!==id):[...saved,id];localStorage.setItem('radar_saved',JSON.stringify(saved));draw();$('fav').textContent=saved.includes(id)?'★ В избранном':'☆ Избранное'};
+}
+document.addEventListener('click',e=>{const m=e.target.closest('.movie');if(m)open(m.dataset.id)});
+$('close').onclick=()=>{$('modal').classList.remove('open');$('player').pause()};
+$('search').oninput=draw;$('searchOpen').onclick=()=>$('search').focus();
+$('genres').onclick=e=>{const b=e.target.closest('[data-g]');if(!b)return;genre=b.dataset.g;document.querySelectorAll('[data-g]').forEach(x=>x.classList.toggle('active',x===b));draw()};
+load();
+})();
