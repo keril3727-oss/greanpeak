@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#08090d"><title>RADAR — Админ-панель</title><link rel="stylesheet" href="style.css"><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>window.RADAR_CONFIG={url:"https://eahtreiygltslvwqzygf.supabase.co",key:"sb_publishable_DaDXiqY5pxtYDtRaqBhCgg_zAyPvHMW"};</script>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#08090d"><title>RADAR — Админ-панель</title><link rel="stylesheet" href="style.css">
 <style>
 .admin-wrap{max-width:900px;margin:auto;padding:28px 5vw}.panel{background:#151720;border:1px solid #2b2e39;border-radius:12px;padding:22px;margin:18px 0}.panel input,.panel textarea,.panel select{width:100%;margin:6px 0 12px;background:#0e1017;color:#fff;border:1px solid #343744;border-radius:7px;padding:12px}.panel label{display:block;color:#ccc;font-size:13px}.panel button,.movie button{background:#e50914;color:#fff;border:0;padding:11px 16px;border-radius:6px;font-weight:700;cursor:pointer}.secondary{background:#303440!important}.status{color:#b8c0d0;font-size:13px;line-height:1.5}.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}.admin-item{background:#151720;border-radius:9px;padding:12px}.admin-item img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:6px}.admin-item h3{font-size:14px}.admin-item button{margin:3px}@media(max-width:600px){.row2{grid-template-columns:1fr}}
 </style></head>
 <body>
 <header class="top"><a class="logo" href="/">RADAR<span>▶</span></a><nav><a href="/">Открыть кинотеатр ↗</a></nav></header>
 <main class="admin-wrap"><small>УПРАВЛЕНИЕ КАТАЛОГОМ</small><h1>Админ-панель RADAR</h1>
-<section class="panel" id="loginBox"><h2>Вход администратора</h2><p class="status">Вход по одноразовому коду на почту. Доступ разрешён только адресу, который назначен владельцем проекта.</p><label>Email администратора<input id="email" type="email" autocomplete="email" placeholder="you@example.com"></label><button id="sendCode">Получить код</button><div id="otpArea" hidden><label>Код из письма<input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Код подтверждения"></label><button id="verifyCode">Войти</button></div><p class="status" id="authStatus"></p></section>
+<section class="panel" id="loginBox"><h2>Вход администратора</h2><p class="status">Введите секретный пароль администратора.</p><label>Секретный пароль<input id="password" type="password" autocomplete="current-password" placeholder="Секретный пароль"></label><button id="login">Войти</button><p class="status" id="authStatus"></p></section>
 <section id="workspace" hidden>
 <div class="panel"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h2>Добавить фильм или сериал</h2><button class="secondary" id="logout">Выйти</button></div>
 <form id="movieForm"><input type="hidden" id="movieId"><label>Название<input id="title" required maxlength="180" placeholder="Название фильма"></label>
@@ -20,68 +20,58 @@
 </main>
 <script>
 (()=>{
-const $=id=>document.getElementById(id),cfg=window.RADAR_CONFIG,db=window.supabase.createClient(cfg.url,cfg.key);
-let current=[],isAdmin=false;
+const $=id=>document.getElementById(id);
+const API="https://eahtreiygltslvwqzygf.supabase.co/functions/v1/radar-admin";
+const PUBLIC="https://eahtreiygltslvwqzygf.supabase.co/storage/v1/object/public/radar-posters/";
+let token=sessionStorage.getItem("radar_admin_token"),current=[];
 const say=(id,msg)=>$(id).textContent=msg;
-const cleanName=n=>n.toLowerCase().replace(/[^a-z0-9._-]+/g,'-').slice(-90)||'file';
-async function checkAdmin(){
- const {data:{session}}=await db.auth.getSession();
- if(!session){$('workspace').hidden=true;$('loginBox').hidden=false;return}
- const {data:ok,error}=await db.rpc('radar_is_admin');
- if(error||!ok){await db.auth.signOut();$('workspace').hidden=true;$('loginBox').hidden=false;say('authStatus','Этот адрес ещё не добавлен в список администраторов. Сообщите владельцу проекта адрес для выдачи доступа.');return}
- isAdmin=true;$('loginBox').hidden=true;$('workspace').hidden=false;await loadMovies();
+async function call(action,body,method="POST"){
+ const r=await fetch(API+"?action="+action,{method,headers:{"Content-Type":"application/json","Authorization":"Bearer "+(token||"")},body:body===undefined?undefined:JSON.stringify(body)});
+ const data=await r.json().catch(()=>({error:"Ошибка ответа сервера"}));
+ if(!r.ok)throw new Error(data.error||"Ошибка запроса ("+r.status+")");
+ return data;
 }
-$('sendCode').onclick=async()=>{
- const email=$('email').value.trim().toLowerCase();if(!email){say('authStatus','Введите email.');return}
- say('authStatus','Отправляем код…');
- const {error}=await db.auth.signInWithOtp({email,options:{shouldCreateUser:true}});
- if(error){say('authStatus','Не удалось отправить код: '+error.message);return}
- $('otpArea').hidden=false;say('authStatus','Код отправлен на '+email+'. Проверьте входящие и папку «Спам».');
-};
-$('verifyCode').onclick=async()=>{
- const email=$('email').value.trim().toLowerCase(),token=$('otp').value.trim();if(!token)return say('authStatus','Введите код из письма.');
- say('authStatus','Проверяем код…');
- const {error}=await db.auth.verifyOtp({email,token,type:'email'});
- if(error){say('authStatus','Код не подошёл: '+error.message);return}
- await checkAdmin();
-};
-$('logout').onclick=async()=>{await db.auth.signOut();isAdmin=false;location.reload()};
-async function upload(bucket,file){
- if(!file)return null;
- const path=crypto.randomUUID()+'-'+cleanName(file.name);
- const {error}=await db.storage.from(bucket).upload(path,file,{upsert:false,contentType:file.type});
- if(error)throw error;return path;
+async function check(){
+ if(!token){$("workspace").hidden=true;$("loginBox").hidden=false;return}
+ try{await call("session",{});$("loginBox").hidden=true;$("workspace").hidden=false;await loadMovies()}
+ catch(e){token=null;sessionStorage.removeItem("radar_admin_token");$("workspace").hidden=true;$("loginBox").hidden=false;say("authStatus","Сессия завершена. Войдите снова.")}
 }
+$("login").onclick=async()=>{
+ const password=$("password").value;if(!password){say("authStatus","Введите пароль.");return}
+ $("login").disabled=true;say("authStatus","Проверяем пароль…");
+ try{const data=await call("login",{password});token=data.token;sessionStorage.setItem("radar_admin_token",token);$("password").value="";say("authStatus","Вход выполнен.");await check()}
+ catch(e){say("authStatus",e.message)}finally{$("login").disabled=false}
+};
+$("password").addEventListener("keydown",e=>{if(e.key==="Enter")$("login").click()});
+$("logout").onclick=()=>{token=null;sessionStorage.removeItem("radar_admin_token");location.reload()};
+async function upload(bucket,file){if(!file)return null;const form=new FormData();form.append("bucket",bucket);form.append("file",file);const r=await fetch(API+"?action=upload",{method:"POST",headers:{"Authorization":"Bearer "+token},body:form});const d=await r.json();if(!r.ok)throw new Error(d.error||"Ошибка загрузки файла");return d.path}
 async function loadMovies(){
- const {data,error}=await db.from('movies').select('*').order('created_at',{ascending:false});
- if(error){say('saveStatus','Ошибка загрузки: '+error.message);return}
- current=data||[];
- $('list').innerHTML=current.map(x=>{
-  const p=x.poster_path?db.storage.from('radar-posters').getPublicUrl(x.poster_path).data.publicUrl:'';
-  return '<article class="admin-item"><img src="'+p+'" alt=""><h3>'+x.title+'</h3><p class="status">'+(x.release_year||'')+' · '+x.genre+' · '+x.type+' · '+(x.is_published?'Опубликован':'Черновик')+'</p><button data-edit="'+x.id+'">Изменить</button> <button class="secondary" data-publish="'+x.id+'">'+(x.is_published?'Снять':'Опубликовать')+'</button> <button class="secondary" data-delete="'+x.id+'">Удалить</button></article>';
- }).join('')||'<p>Каталог пока пуст.</p>';
+ const d=await call("list",{});current=d.movies||[];
+ $("list").innerHTML=current.map(x=>{
+ const p=x.poster_path?PUBLIC+encodeURIComponent(x.poster_path).replace(/%2F/g,"/"):"";
+ return '<article class="admin-item"><img src="'+p+'" alt=""><h3>'+escapeHtml(x.title)+'</h3><p class="status">'+(x.release_year||"")+' · '+escapeHtml(x.genre||"")+' · '+escapeHtml(x.type||"")+' · '+(x.is_published?"Опубликован":"Черновик")+'</p><button data-edit="'+x.id+'">Изменить</button> <button class="secondary" data-publish="'+x.id+'">'+(x.is_published?"Снять":"Опубликовать")+'</button> <button class="secondary" data-delete="'+x.id+'">Удалить</button></article>';
+ }).join("")||"<p>Каталог пока пуст.</p>";
 }
-function reset(){ $('movieForm').reset();$('movieId').value='';$('saveMovie').textContent='Сохранить материал';}
-$('resetForm').onclick=reset;
-$('movieForm').onsubmit=async e=>{
- e.preventDefault();if(!isAdmin)return;
- const btn=$('saveMovie');btn.disabled=true;say('saveStatus','Загружаем файлы и сохраняем карточку…');
+function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function reset(){$("movieForm").reset();$("movieId").value="";$("saveMovie").textContent="Сохранить материал"}
+$("resetForm").onclick=reset;
+$("movieForm").onsubmit=async e=>{
+ e.preventDefault();const btn=$("saveMovie");btn.disabled=true;say("saveStatus","Загружаем файлы и сохраняем карточку…");
  try{
-  const id=$('movieId').value||crypto.randomUUID(),old=current.find(x=>x.id===id)||{};
-  const poster=await upload('radar-posters',$('poster').files[0]);
-  const video=await upload('radar-videos',$('video').files[0]);
-  const payload={id,title:$('title').value.trim(),description:$('desc').value.trim(),genre:$('genre').value,type:$('type').value,release_year:$('year').value?Number($('year').value):null,duration_minutes:$('duration').value?Number($('duration').value):null,poster_path:poster||old.poster_path||null,video_path:video||old.video_path||null,is_published:$('published').checked,updated_at:new Date().toISOString()};
-  const {error}=await db.from('movies').upsert(payload);
-  if(error)throw error;reset();await loadMovies();say('saveStatus','Сохранено. Материал синхронизирован с каталогом RADAR.');
- }catch(err){say('saveStatus','Ошибка: '+err.message)}finally{btn.disabled=false}
+ const id=$("movieId").value||crypto.randomUUID(),old=current.find(x=>x.id===id)||{};
+ const poster=await upload("radar-posters",$("poster").files[0]),video=await upload("radar-videos",$("video").files[0]);
+ const payload={id,title:$("title").value.trim(),description:$("desc").value.trim(),genre:$("genre").value,type:$("type").value,release_year:$("year").value?Number($("year").value):null,duration_minutes:$("duration").value?Number($("duration").value):null,poster_path:poster||old.poster_path||null,video_path:video||old.video_path||null,is_published:$("published").checked,updated_at:new Date().toISOString()};
+ await call("save",payload);reset();await loadMovies();say("saveStatus","Сохранено. Материал синхронизирован с каталогом RADAR.");
+ }catch(err){say("saveStatus","Ошибка: "+err.message)}finally{btn.disabled=false}
 };
-$('list').onclick=async e=>{
- const edit=e.target.closest('[data-edit]')?.dataset.edit,pub=e.target.closest('[data-publish]')?.dataset.publish,del=e.target.closest('[data-delete]')?.dataset.delete;
- if(edit){const x=current.find(a=>a.id===edit);if(!x)return;$('movieId').value=x.id;$('title').value=x.title;$('year').value=x.release_year||'';$('duration').value=x.duration_minutes||'';$('genre').value=x.genre;$('type').value=x.type;$('desc').value=x.description||'';$('published').checked=x.is_published;$('saveMovie').textContent='Сохранить изменения';window.scrollTo({top:0,behavior:'smooth'});return}
- if(pub){const x=current.find(a=>a.id===pub);const {error}=await db.from('movies').update({is_published:!x.is_published,updated_at:new Date().toISOString()}).eq('id',pub);if(error)say('saveStatus',error.message);await loadMovies();return}
- if(del&&confirm('Удалить материал из каталога?')){const {error}=await db.from('movies').delete().eq('id',del);if(error)say('saveStatus',error.message);else say('saveStatus','Материал удалён.');await loadMovies()}
+$("list").onclick=async e=>{
+ const edit=e.target.closest("[data-edit]")?.dataset.edit,pub=e.target.closest("[data-publish]")?.dataset.publish,del=e.target.closest("[data-delete]")?.dataset.delete;
+ try{
+ if(edit){const x=current.find(a=>a.id===edit);if(!x)return;$("movieId").value=x.id;$("title").value=x.title;$("year").value=x.release_year||"";$("duration").value=x.duration_minutes||"";$("genre").value=x.genre;$("type").value=x.type;$("desc").value=x.description||"";$("published").checked=x.is_published;$("saveMovie").textContent="Сохранить изменения";window.scrollTo({top:0,behavior:"smooth"});return}
+ if(pub){const x=current.find(a=>a.id===pub);await call("publish",{id:pub,is_published:!x.is_published});await loadMovies();return}
+ if(del&&confirm("Удалить материал из каталога?")){await call("delete",{id:del});say("saveStatus","Материал удалён.");await loadMovies()}
+ }catch(err){say("saveStatus","Ошибка: "+err.message)}
 };
-db.auth.onAuthStateChange(()=>{setTimeout(checkAdmin,0)});
-checkAdmin();
+check();
 })();
 </script></body></html>
