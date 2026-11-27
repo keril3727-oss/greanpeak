@@ -29,12 +29,14 @@ async function identifyImage(bytes, mimeType) {
   if (!GEMINI_KEY) throw new Error("GEMINI_KEY_MISSING");
   const base64 = Buffer.from(bytes).toString("base64");
   const prompt = [
-    "Определи товар на фото. Не выдумывай бренд, модель или артикул.",
-    "Если точная модель не определяется по фото, верни is_identifiable=false.",
+    "Определи вещь на фото максимально полезно для поиска товара в интернет-магазинах России и Беларуси.",
+    "Не выдумывай бренд, модель или артикул. Если бренд неясен, оставь brand пустым, но обязательно опиши категорию и видимые признаки.",
+    "Подбери поисковые фразы на русском и английском: тип вещи, фасон, материал, цвет, принт, отличительные детали.",
     "Верни только JSON: {",
     '"is_identifiable": boolean, "brand": string, "model_name": string,',
-    '"model_code": string, "category": string, "color": string, "confidence": number',
-    "}. confidence от 0 до 1. Не считай похожую модель точным совпадением."
+    '"model_code": string, "category": string, "color": string,',
+    '"search_terms_ru": string, "search_terms_en": string, "confidence": number',
+    "}. Не называй похожую вещь точным совпадением."
   ].join(" ");
   const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
@@ -65,17 +67,26 @@ async function getFileBytes(fileId) {
 }
 
 function makeSearchLinks(item) {
-  const q = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ").trim();
-  const exactQuery = '"' + q + '"';
-  const targets = [
-    ["Wildberries · Россия", "site:wildberries.ru " + exactQuery],
-    ["Ozon · Россия", "site:ozon.ru " + exactQuery],
-    ["Avito · Россия (б/у)", "site:avito.ru " + exactQuery],
-    ["Kufar · Беларусь", "site:kufar.by " + exactQuery],
-    ["Onliner · Беларусь", "site:catalog.onliner.by " + exactQuery],
-    ["Google · все магазины", exactQuery]
+  const clean = (v) => String(v || "").trim();
+  const brand = clean(item.brand);
+  const model = clean(item.model_name);
+  const code = clean(item.model_code);
+  const category = clean(item.category);
+  const color = clean(item.color);
+  const ru = clean(item.search_terms_ru);
+  const en = clean(item.search_terms_en);
+  const base = [brand, model, code].filter(Boolean).join(" ");
+  const broad = [brand, category, color, ru].filter(Boolean).join(" ");
+  const queries = [
+    ["Wildberries · поиск", "site:wildberries.ru " + (base || broad)],
+    ["Ozon · поиск", "site:ozon.ru " + (base || broad)],
+    ["Avito · Россия", "site:avito.ru " + (base || broad)],
+    ["Kufar · Беларусь", "site:kufar.by " + (base || broad)],
+    ["Onliner · Беларусь", "site:catalog.onliner.by " + (base || broad)],
+    ["Яндекс · все магазины", broad || base],
+    ["Google · похожие товары", [brand, category, color, ru, en].filter(Boolean).join(" ")]
   ];
-  return targets.map(([label, query]) => ({
+  return queries.map(([label, query]) => ({
     text: label,
     url: "https://www.google.com/search?q=" + encodeURIComponent(query)
   }));
@@ -90,16 +101,17 @@ async function handlePhoto(message) {
   const photo = message.photo[message.photo.length - 1];
   const file = await getFileBytes(photo.file_id);
   const item = await identifyImage(file.bytes, file.mimeType);
-  if (!item.is_identifiable || Number(item.confidence) < 0.75 || !item.brand || !item.model_name) {
-    return say(chatId, "Не удалось уверенно определить точную модель. Пришли фото бирки, логотипа или модели с другого ракурса.");
+  if (!item.category && !item.model_name && !item.search_terms_ru) {
+    return say(chatId, "Не получилось разобрать вещь на фото. Попробуй прислать более чёткое фото целиком и отдельно логотип или бирку.");
   }
-  const query = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ");
+  const query = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ") || [item.category, item.color, item.search_terms_ru].filter(Boolean).join(" ");
   const keyboardRows = makeSearchLinks(item).map(button => [button]);
   await say(chatId,
     "🔎 Предположительно определено: " + query +
     (item.category ? "\nКатегория: " + item.category : "") +
     (item.color ? "\nЦвет: " + item.color : "") +
-    "\n\nЭто распознавание по фото, а не подтверждённое совпадение. Открой поиск магазина и проверь модель, артикул и фотографии перед покупкой.",
+    (!item.brand ? "\nБренд точно не определён." : "") +
+    "\n\nЯ расширил запрос и добавил поиск по похожим описаниям. Совпадение не гарантировано: проверь фото, характеристики и продавца перед покупкой.",
     { inline_keyboard: keyboardRows }
   );
 }
