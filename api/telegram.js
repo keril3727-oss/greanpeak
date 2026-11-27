@@ -44,9 +44,13 @@ async function identifyImage(bytes, mimeType) {
   let lastError = "Image recognition failed";
   for (const model of models) {
     const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
-    for (let attempt = 0; attempt < 2; attempt++) {
+    // Bound each provider call so Telegram webhook never hangs until Vercel's hard timeout.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    try {
       const r = await fetch(url, {
         method: "POST",
+        signal: controller.signal,
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: safeMimeType, data: base64 } }] }],
@@ -61,7 +65,10 @@ async function identifyImage(bytes, mimeType) {
       lastError = data.error?.message || "Image recognition failed";
       const temporary = r.status === 429 || r.status >= 500 || /high demand|temporar|overload/i.test(lastError);
       if (!temporary) throw new Error(lastError);
-      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1200));
+    } catch (error) {
+      lastError = error.name === "AbortError" ? "Gemini request timed out" : error.message;
+    } finally {
+      clearTimeout(timeout);
     }
   }
   throw new Error(lastError);
