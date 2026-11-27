@@ -152,7 +152,7 @@ function makeSearchLinks(item) {
     { text: "Wildberries", url: "https://www.wildberries.ru/catalog/0/search.aspx?search=" + q },
     { text: "Avito", url: "https://www.avito.ru/rossiya?q=" + q },
     { text: "Kufar", url: "https://www.kufar.by/l?query=" + q },
-    { text: "💰 Купить по лучшей цене", url: "https://t.me/+WIuuU2nv9QM1NGYy" },
+    { text: "💰 Купить по лучшей цене", url: "https://t.me/radar_shmot" },
     { text: "📢 Купить рекламу · @verpot", url: "https://t.me/verpot" }
   ];
 }
