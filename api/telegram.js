@@ -78,14 +78,19 @@ async function identifyImage(bytes, mimeType) {
   if (!GEMINI_KEY) throw new Error("GEMINI_KEY_MISSING");
   const base64 = Buffer.from(bytes).toString("base64");
   const prompt = [
-    "Определи вещь на фото максимально полезно для поиска товара в интернет-магазинах России и Беларуси.",
-    "Не выдумывай бренд, модель или артикул. Если бренд неясен, оставь brand пустым, но обязательно опиши категорию и видимые признаки.",
-    "Подбери поисковые фразы на русском и английском: тип вещи, фасон, материал, цвет, принт, отличительные детали.",
+    "Ты эксперт по визуальной идентификации одежды, обуви, сумок и аксессуаров для поиска товаров в России и Беларуси.",
+    "Осмотри логотипы, надписи, бирки, ярлыки, принты, форму карманов, швы, подошву, застёжки, силуэт и другие уникальные детали.",
+    "Перепиши только реально читаемый текст с фото, включая артикулы и коды. Не угадывай нечитаемые символы.",
+    "Определи бренд и модель только при наличии визуальных оснований. Не путай общий тип вещи с конкретной моделью. Не выдумывай артикулы.",
+    "Если точная модель не подтверждается, оставь model_name и model_code пустыми, а search_terms_ru составь как точный описательный запрос по видимым признакам.",
+    "Укажи отличительные признаки, которые поддерживают идентификацию. confidence — число от 0 до 1, уверенность именно в модели, а не в категории. Не завышай оценку.",
     "Верни только JSON: {",
-    '"is_identifiable": boolean, "brand": string, "model_name": string,',
-    '"model_code": string, "category": string, "color": string,',
-    '"search_terms_ru": string, "search_terms_en": string, "confidence": number',
-    "}. Не называй похожую вещь точным совпадением."
+    '\"is_identifiable\": boolean, \"brand\": string, \"model_name\": string,',
+    '\"model_code\": string, \"category\": string, \"color\": string,',
+    '\"visible_text\": string, \"distinctive_details\": [string],',
+    '\"search_terms_ru\": string, \"search_terms_en\": string,',
+    '\"confidence\": number, \"exact_model_confirmed\": boolean',
+    "}. exact_model_confirmed=true только при сильных подтверждениях конкретной модели или артикула."
   ].join(" ");
   // Use the currently supported model; do not let an old Vercel env override select a retired model.
   const models = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
@@ -144,9 +149,11 @@ function makeSearchLinks(item) {
   const category = clean(item.category);
   const color = clean(item.color);
   const ru = clean(item.search_terms_ru);
-  const base = [brand, model, code].filter(Boolean).join(" ");
-  const broad = [brand, category, color, ru].filter(Boolean).join(" ") || base || "одежда";
-  const q = encodeURIComponent(base || broad);
+  const exact = [brand, model, code].filter(Boolean).join(" ");
+  // When the model is unknown, search by visual description instead of brand alone.
+  const hasSpecificModel = Boolean(model || code);
+  const broad = [brand, category, color, ru].filter(Boolean).join(" ");
+  const q = encodeURIComponent(hasSpecificModel ? exact : (broad || exact || "одежда"));
   return [
     { text: "Ozon", url: "https://www.ozon.ru/search/?text=" + q },
     { text: "Wildberries", url: "https://www.wildberries.ru/catalog/0/search.aspx?search=" + q },
@@ -169,15 +176,21 @@ async function handlePhoto(message) {
   if (!item.category && !item.model_name && !item.search_terms_ru) {
     return say(chatId, "Не получилось разобрать вещь на фото. Попробуй прислать более чёткое фото целиком и отдельно логотип или бирку.");
   }
-  const query = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ") || [item.category, item.color, item.search_terms_ru].filter(Boolean).join(" ");
+  const query = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ") || [item.brand, item.category, item.color, item.search_terms_ru].filter(Boolean).join(" ");
   const keyboardRows = makeSearchLinks(item).map(button => [button]);
   keyboardRows.push([{ text: "👕 Примерить", callback_data: "tryon_coming_soon" }]);
+  const confidence = Math.max(0, Math.min(1, Number(item.confidence) || 0));
+  const confidenceLabel = confidence >= 0.85 ? "высокая" : confidence >= 0.6 ? "средняя" : "низкая";
+  const details = Array.isArray(item.distinctive_details) ? item.distinctive_details.filter(Boolean).slice(0, 4) : [];
   await say(chatId,
-    "🔎 Предположительно определено: " + query +
+    "🔎 Результат распознавания: " + (query || "модель не определена") +
     (item.category ? "\nКатегория: " + item.category : "") +
     (item.color ? "\nЦвет: " + item.color : "") +
-    (!item.brand ? "\nБренд точно не определён." : "") +
-    "\n\nЯ расширил запрос и добавил поиск по похожим описаниям. Совпадение не гарантировано: проверь фото, характеристики и продавца перед покупкой.",
+    (item.visible_text ? "\nТекст/бирка: " + String(item.visible_text).slice(0, 180) : "") +
+    (details.length ? "\nОтличительные детали: " + details.join("; ") : "") +
+    "\nУверенность в модели: " + confidenceLabel + " (" + Math.round(confidence * 100) + "%)" +
+    (item.exact_model_confirmed === true ? "\nМодель имеет признаки точного совпадения." : "\nТочная модель пока не подтверждена — поиск по описанию.") +
+    "\n\nСверяй фотографии, артикул и характеристики в магазине: похожие вещи могут выглядеть почти одинаково.",
     { inline_keyboard: keyboardRows }
   );
 }
