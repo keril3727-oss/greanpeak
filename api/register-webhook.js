@@ -1,5 +1,4 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
 module.exports = async function handler(req, res) {
   if (req.method === "GET") {
@@ -25,8 +24,8 @@ document.getElementById("go").addEventListener("click",async()=>{
 </script></body></html>`);
   }
   if (req.method !== "POST") return res.status(405).json({ ok: false });
-  if (!BOT_TOKEN || !WEBHOOK_SECRET) {
-    return res.status(503).json({ ok: false, error: "В Vercel не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_WEBHOOK_SECRET" });
+  if (!BOT_TOKEN) {
+    return res.status(503).json({ ok: false, error: "В Vercel не настроен TELEGRAM_BOT_TOKEN" });
   }
   // Use the stable branch alias, not a one-off deployment hostname.
   const webhookUrl = "https://profit-radar-finances-git-radar-bot-mvp-kerilasolo.vercel.app/api/telegram";
@@ -35,7 +34,6 @@ document.getElementById("go").addEventListener("click",async()=>{
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       url: webhookUrl,
-      secret_token: WEBHOOK_SECRET,
       allowed_updates: ["message"],
       drop_pending_updates: true
     })
