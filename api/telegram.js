@@ -7,7 +7,7 @@ const NEW_USERS_CHAT_ID = "-1003674295085";
 async function trackNewUser(message) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !message.from?.id) return;
   try {
-    const response = await fetch(SUPABASE_URL.replace(/\\/$/, "") + "/rest/v1/radar_bot_users", {
+    const response = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users", {
       method: "POST",
       headers: {
         apikey: SUPABASE_KEY,
@@ -26,7 +26,7 @@ async function trackNewUser(message) {
     if (!response.ok) throw new Error("Supabase insert failed: " + response.status);
     const inserted = await response.json();
     if (!Array.isArray(inserted) || inserted.length === 0) return;
-    const countResponse = await fetch(SUPABASE_URL.replace(/\\/$/, "") + "/rest/v1/radar_bot_users?select=telegram_user_id", {
+    const countResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=telegram_user_id", {
       method: "HEAD",
       headers: {
         apikey: SUPABASE_KEY,
@@ -40,10 +40,10 @@ async function trackNewUser(message) {
     const name = [message.from.first_name, message.from.last_name].filter(Boolean).join(" ") || "не указано";
     const username = message.from.username ? "@" + message.from.username : "не указан";
     await say(NEW_USERS_CHAT_ID,
-      "🆕 Новый пользователь RADAR\\nИмя: " + name +
-      "\\nUsername: " + username +
-      "\\nID: " + message.from.id +
-      "\\nВсего пользователей: " + total
+      "🆕 Новый пользователь RADAR\nИмя: " + name +
+      "\nUsername: " + username +
+      "\nID: " + message.from.id +
+      "\nВсего пользователей: " + total
     );
   } catch (error) {
     console.error("RADAR user tracking error:", error.message);
