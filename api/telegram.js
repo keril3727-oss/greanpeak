@@ -91,12 +91,12 @@ async function searchSerp(query, gl, engine) {
 
 function priceInfo(value) {
   const s = String(value || "");
-  const m = s.match(/(?:₽|руб\\.?|RUB|BYN|Br|бел\\.\\s*руб\\.?|\\$|€)\\s*([\\d\\s.,]+)/i) ||
-            s.match(/([\\d\\s.,]+)\\s*(?:₽|руб\\.?|RUB|BYN|Br|€|\\$)/i);
+  const m = s.match(/(?:₽|руб\.?|RUB|BYN|Br|бел\.\s*руб\.?|\$|€)\s*([\d\s.,]+)/i) ||
+            s.match(/([\d\s.,]+)\s*(?:₽|руб\.?|RUB|BYN|Br|€|\$)/i);
   if (!m) return null;
-  const amount = Number(m[1].replace(/\\s/g, "").replace(",", ".").replace(/\\.(?=.*\\.)/g, ""));
+  const amount = Number(m[1].replace(/\s/g, "").replace(",", ".").replace(/\.(?=.*\.)/g, ""));
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  const currency = /BYN|Br|бел\\.\\s*руб/i.test(s) ? "BYN" : /€/.test(s) ? "EUR" : /\\$/.test(s) ? "USD" : "RUB";
+  const currency = /BYN|Br|бел\.\s*руб/i.test(s) ? "BYN" : /€/.test(s) ? "EUR" : /\$/.test(s) ? "USD" : "RUB";
   return { amount, currency };
 }
 
@@ -130,7 +130,7 @@ async function activePromotion(domain) {
 }
 
 function hostname(link) {
-  try { return new URL(link).hostname.replace(/^www\\./, ""); } catch { return ""; }
+  try { return new URL(link).hostname.replace(/^www\./, ""); } catch { return ""; }
 }
 
 async function findProducts(item) {
@@ -183,19 +183,19 @@ async function handlePhoto(message) {
   const prices = products.map(x => x.priceRub).filter(Number.isFinite);
   const min = prices.length ? Math.min(...prices) : null;
   const header = "🔎 " + item.brand + " " + item.model_name + (item.model_code ? " · " + item.model_code : "");
-  await say(chatId, header + (min ? "\\nМинимальная найденная цена: " + min.toLocaleString("ru-RU") + " ₽" : ""));
+  await say(chatId, header + (min ? "\nМинимальная найденная цена: " + min.toLocaleString("ru-RU") + " ₽" : ""));
   for (const product of products.slice(0, 6)) {
     const promo = await activePromotion(hostname(product.link));
     const url = promo?.target_url || product.link;
     const label = promo ? "Приобрести можно тут · " + promo.shop_name : "Приобрести можно тут";
     await say(chatId,
-      "🛍 " + product.title + "\\n" + product.condition + ": " + product.priceLabel + "\\nМагазин: " + product.source,
+      "🛍 " + product.title + "\n" + product.condition + ": " + product.priceLabel + "\nМагазин: " + product.source,
       { inline_keyboard: [[{ text: label, url }]] }
     );
   }
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false });
   if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: "Bot is not configured" });
   if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) {
@@ -209,7 +209,7 @@ export default async function handler(req, res) {
       await handlePhoto(message);
     } else if (message.text === "/start") {
       await say(chatId,
-        "Привет! Я RADAR 🔎\\nОтправь фото одежды, обуви, сумки или аксессуара — попробую найти точную модель и предложения в России и Беларуси. Похожие товары вместо точного совпадения не показываю.",
+        "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара — попробую найти точную модель и предложения в России и Беларуси. Похожие товары вместо точного совпадения не показываю.",
         keyboard()
       );
     } else if (message.text === "/help" || message.text === "ℹ️ Помощь") {
