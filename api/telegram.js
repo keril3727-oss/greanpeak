@@ -38,13 +38,15 @@ async function identifyImage(bytes, mimeType) {
     '"search_terms_ru": string, "search_terms_en": string, "confidence": number',
     "}. Не называй похожую вещь точным совпадением."
   ].join(" ");
-  const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  // Use the currently supported model; do not let an old Vercel env override select a retired model.
+  const model = "gemini-3.8-flash";
+  const safeMimeType = String(mimeType || "").startsWith("image/") ? mimeType : "image/jpeg";
   const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
   const r = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: base64 } }] }],
+      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: safeMimeType, data: base64 } }] }],
       generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
     })
   });
@@ -63,7 +65,8 @@ async function getFileBytes(fileId) {
   const type = file.headers.get("content-type") || "image/jpeg";
   const bytes = await file.arrayBuffer();
   if (bytes.byteLength > 8 * 1024 * 1024) throw new Error("Фото слишком большое. Отправь изображение меньшего размера.");
-  return { bytes, mimeType: type.split(";")[0] };
+  const mimeType = type.split(";")[0].startsWith("image/") ? type.split(";")[0] : "image/jpeg";
+  return { bytes, mimeType };
 }
 
 function makeSearchLinks(item) {
