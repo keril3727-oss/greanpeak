@@ -1,5 +1,4 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
 
 const tg = (method) => "https://api.telegram.org/bot" + BOT_TOKEN + "/" + method;
@@ -108,9 +107,6 @@ async function handlePhoto(message) {
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false });
   if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: "Bot is not configured" });
-  if (WEBHOOK_SECRET && req.headers["x-telegram-bot-api-secret-token"] !== WEBHOOK_SECRET) {
-    return res.status(401).json({ ok: false });
-  }
   const message = (req.body || {}).message;
   if (!message?.chat?.id) return res.status(200).json({ ok: true });
   const chatId = message.chat.id;
