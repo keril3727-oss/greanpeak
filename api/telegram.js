@@ -78,7 +78,9 @@ async function getFileBytes(fileId) {
   const file = await fetch("https://api.telegram.org/file/bot" + BOT_TOKEN + "/" + info.result.file_path);
   if (!file.ok) throw new Error("Не удалось скачать фотографию");
   const type = file.headers.get("content-type") || "image/jpeg";
-  return { bytes: await file.arrayBuffer(), mimeType: type.split(";")[0] };
+  const bytes = await file.arrayBuffer();
+  if (bytes.byteLength > 8 * 1024 * 1024) throw new Error("Фото слишком большое. Отправь изображение меньшего размера.");
+  return { bytes, mimeType: type.split(";")[0] };
 }
 
 async function searchSerp(query, gl, engine) {
@@ -141,15 +143,15 @@ async function findProducts(item) {
     searchSerp(query, "by", "google_shopping"),
     searchSerp('"' + query + '" site:avito.ru OR site:youla.ru', "ru", "google")
   ]);
-  const fresh = [...results[0], ...results[1]].filter(x => isExactTitle(x.title, item));
-  const used = results[2].filter(x => isExactTitle(x.title, item));
+  const fresh = [...results[0], ...results[1]].filter(x => x.link && isExactTitle(x.title, item));
+  const used = results[2].filter(x => x.link && isExactTitle(x.title, item));
   const products = [];
   for (const x of fresh.slice(0, 5)) {
     const p = priceInfo(x.price || x.extracted_price);
     const rub = await toRub(p);
     products.push({
       title: x.title, priceRub: rub,
-      priceLabel: rub ? rub.toLocaleString("ru-RU") + " ₽" : (x.price || "Цена не указана"),
+      priceLabel: rub ? rub.toLocaleString("ru-RU") + " ₽" : "Цена не указана",
       link: x.link, source: x.source || hostname(x.link),
       condition: "Новая"
     });
