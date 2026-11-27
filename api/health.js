@@ -5,8 +5,8 @@ module.exports = function handler(req, res) {
     configured: {
       telegram: Boolean(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_WEBHOOK_SECRET),
       imageRecognition: Boolean(process.env.GEMINI_API_KEY),
-      productSearch: Boolean(process.env.SERPAPI_KEY),
-      shopPromotions: Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY)
-    }
+      shopPromotionsDatabase: Boolean(process.env.SUPABASE_URL)
+    },
+    searchMode: "free_search_links_no_price_scraping"
   });
-}
+};
