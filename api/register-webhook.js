@@ -8,23 +8,25 @@ module.exports = async function handler(req, res) {
 <html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RADAR — подключение Telegram</title>
 <body style="font:16px Arial;max-width:420px;margin:40px auto;padding:20px">
-<h2>Подключение RADAR</h2><p>Вставь секрет из Vercel. Он отправится только этому серверу для настройки webhook.</p>
-<form id="f"><input id="s" type="password" autocomplete="off" required placeholder="TELEGRAM_WEBHOOK_SECRET" style="box-sizing:border-box;width:100%;padding:12px">
-<button style="margin-top:12px;padding:12px 18px">Подключить Telegram</button></form><p id="out"></p>
+<h2>Подключение RADAR</h2>
+<p>Нажми кнопку — сервер сам подключит Telegram. Пароль вводить не нужно.</p>
+<button id="go" style="margin-top:12px;padding:12px 18px">Подключить Telegram</button><p id="out"></p>
 <script>
-document.getElementById("f").addEventListener("submit",async e=>{
- e.preventDefault();const out=document.getElementById("out");out.textContent="Подключаю…";
- try{const r=await fetch("/api/register-webhook",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({secret:document.getElementById("s").value})});
- const d=await r.json();out.textContent=d.ok?"Готово! Telegram подключён.":"Ошибка: "+(d.error||"не удалось подключить");
+document.getElementById("go").addEventListener("click",async()=>{
+ const out=document.getElementById("out");const b=document.getElementById("go");
+ b.disabled=true;out.textContent="Подключаю…";
+ try{
+  const r=await fetch("/api/register-webhook",{method:"POST"});
+  const d=await r.json();
+  out.textContent=d.ok?"Готово! Telegram подключён.": "Ошибка: "+(d.error||"не удалось подключить");
  }catch(_){out.textContent="Ошибка соединения. Попробуй ещё раз."}
+ finally{b.disabled=false}
 });
 </script></body></html>`);
   }
   if (req.method !== "POST") return res.status(405).json({ ok: false });
-  if (!BOT_TOKEN || !WEBHOOK_SECRET) return res.status(503).json({ ok: false, error: "Переменные окружения не настроены" });
-  const supplied = req.body && req.body.secret;
-  if (typeof supplied !== "string" || supplied.length < 16 || supplied !== WEBHOOK_SECRET) {
-    return res.status(401).json({ ok: false, error: "Неверный секрет" });
+  if (!BOT_TOKEN || !WEBHOOK_SECRET) {
+    return res.status(503).json({ ok: false, error: "В Vercel не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_WEBHOOK_SECRET" });
   }
   const host = process.env.VERCEL_URL;
   if (!host) return res.status(503).json({ ok: false, error: "Не определён адрес Vercel" });
