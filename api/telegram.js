@@ -39,21 +39,32 @@ async function identifyImage(bytes, mimeType) {
     "}. Не называй похожую вещь точным совпадением."
   ].join(" ");
   // Use the currently supported model; do not let an old Vercel env override select a retired model.
-  const model = "gemini-3.8-flash";
+  const models = ["gemini-3.8-flash", "gemini-3.1-flash-lite"];
   const safeMimeType = String(mimeType || "").startsWith("image/") ? mimeType : "image/jpeg";
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: safeMimeType, data: base64 } }] }],
-      generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
-    })
-  });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error?.message || "Image recognition failed");
-  const raw = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
-  return JSON.parse(raw.trim());
+  let lastError = "Image recognition failed";
+  for (const model of models) {
+    const url = "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent?key=" + encodeURIComponent(GEMINI_KEY);
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const r = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: safeMimeType, data: base64 } }] }],
+          generationConfig: { temperature: 0.1, responseMimeType: "application/json" }
+        })
+      });
+      const data = await r.json();
+      if (r.ok) {
+        const raw = data.candidates?.[0]?.content?.parts?.map(p => p.text || "").join("") || "";
+        return JSON.parse(raw.trim());
+      }
+      lastError = data.error?.message || "Image recognition failed";
+      const temporary = r.status === 429 || r.status >= 500 || /high demand|temporar|overload/i.test(lastError);
+      if (!temporary) throw new Error(lastError);
+      if (attempt === 0) await new Promise(resolve => setTimeout(resolve, 1200));
+    }
+  }
+  throw new Error(lastError);
 }
 
 async function getFileBytes(fileId) {
