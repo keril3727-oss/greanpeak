@@ -29,7 +29,7 @@ document.getElementById("go").addEventListener("click",async()=>{
     return res.status(503).json({ ok: false, error: "В Vercel не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_WEBHOOK_SECRET" });
   }
   // Use the stable branch alias, not a one-off deployment hostname.
-  const webhookUrl = "https://profit-radar-finances-git-radar-bot-kerilasolo.vercel.app/api/telegram";
+  const webhookUrl = "https://profit-radar-finances-git-radar-bot-mvp-kerilasolo.vercel.app/api/telegram";
   const response = await fetch("https://api.telegram.org/bot" + BOT_TOKEN + "/setWebhook", {
     method: "POST",
     headers: { "content-type": "application/json" },
