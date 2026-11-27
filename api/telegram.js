@@ -98,14 +98,13 @@ function makeSearchLinks(item) {
   const base = [brand, model, code].filter(Boolean).join(" ");
   const broad = [brand, category, color, ru].filter(Boolean).join(" ") || base || "одежда";
   const q = encodeURIComponent(base || broad);
-  const bestQuery = encodeURIComponent((base || broad) + " (site:ozon.ru OR site:wildberries.ru OR site:avito.ru OR site:kufar.by)");
   return [
     { text: "Ozon", url: "https://www.ozon.ru/search/?text=" + q },
     { text: "Wildberries", url: "https://www.wildberries.ru/catalog/0/search.aspx?search=" + q },
     { text: "Avito", url: "https://www.avito.ru/rossiya?q=" + q },
     { text: "Kufar", url: "https://www.kufar.by/l?query=" + q },
-    { text: "💰 Купить по лучшей цене", url: "https://www.google.com/search?q=" + bestQuery },
-    { text: "Здесь может быть ваш шоп · @verpot", url: "https://t.me/+WIuuU2nv9QM1NGYy" }
+    { text: "💰 Купить по лучшей цене", url: "https://t.me/+WIuuU2nv9QM1NGYy" },
+    { text: "📢 Купить рекламу · @verpot", url: "https://t.me/verpot" }
   ];
 }
 
