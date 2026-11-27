@@ -1,5 +1,54 @@
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+const NEW_USERS_CHAT_ID = "-1003674295085";
+
+async function trackNewUser(message) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !message.from?.id) return;
+  try {
+    const response = await fetch(SUPABASE_URL.replace(/\\/$/, "") + "/rest/v1/radar_bot_users", {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        authorization: "Bearer " + SUPABASE_KEY,
+        "content-type": "application/json",
+        Prefer: "resolution=ignore-duplicates,return=representation"
+      },
+      body: JSON.stringify({
+        telegram_user_id: message.from.id,
+        chat_id: message.chat.id,
+        username: message.from.username || null,
+        first_name: message.from.first_name || null,
+        last_name: message.from.last_name || null
+      })
+    });
+    if (!response.ok) throw new Error("Supabase insert failed: " + response.status);
+    const inserted = await response.json();
+    if (!Array.isArray(inserted) || inserted.length === 0) return;
+    const countResponse = await fetch(SUPABASE_URL.replace(/\\/$/, "") + "/rest/v1/radar_bot_users?select=telegram_user_id", {
+      method: "HEAD",
+      headers: {
+        apikey: SUPABASE_KEY,
+        authorization: "Bearer " + SUPABASE_KEY,
+        Prefer: "count=exact",
+        Range: "0-0"
+      }
+    });
+    const range = countResponse.headers.get("content-range") || "";
+    const total = range.split("/")[1] || "—";
+    const name = [message.from.first_name, message.from.last_name].filter(Boolean).join(" ") || "не указано";
+    const username = message.from.username ? "@" + message.from.username : "не указан";
+    await say(NEW_USERS_CHAT_ID,
+      "🆕 Новый пользователь RADAR\\nИмя: " + name +
+      "\\nUsername: " + username +
+      "\\nID: " + message.from.id +
+      "\\nВсего пользователей: " + total
+    );
+  } catch (error) {
+    console.error("RADAR user tracking error:", error.message);
+  }
+}
 
 const tg = (method) => "https://api.telegram.org/bot" + BOT_TOKEN + "/" + method;
 
@@ -156,6 +205,7 @@ module.exports = async function handler(req, res) {
     if (message.photo?.length) {
       await handlePhoto(message);
     } else if (message.text === "/start") {
+      await trackNewUser(message);
       await say(chatId,
         "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.",
         keyboard()
