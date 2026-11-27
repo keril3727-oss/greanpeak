@@ -122,6 +122,7 @@ async function handlePhoto(message) {
   }
   const query = [item.brand, item.model_name, item.model_code].filter(Boolean).join(" ") || [item.category, item.color, item.search_terms_ru].filter(Boolean).join(" ");
   const keyboardRows = makeSearchLinks(item).map(button => [button]);
+  keyboardRows.push([{ text: "👕 Примерить", callback_data: "tryon_coming_soon" }]);
   await say(chatId,
     "🔎 Предположительно определено: " + query +
     (item.category ? "\nКатегория: " + item.category : "") +
@@ -135,7 +136,20 @@ async function handlePhoto(message) {
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false });
   if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: "Bot is not configured" });
-  const message = (req.body || {}).message;
+  const update = req.body || {};
+  const callback = update.callback_query;
+  if (callback?.data === "tryon_coming_soon") {
+    try {
+      await telegram("answerCallbackQuery", { callback_query_id: callback.id, text: "Скоро будет!" });
+      if (callback.message?.chat?.id) {
+        await say(callback.message.chat.id, "👕 Виртуальная примерка одежды и обуви сейчас в разработке. Пока кнопка показывает заглушку — генерация фото и оплата ещё не подключены. Когда функция будет готова, здесь можно будет примерить найденную вещь.");
+      }
+    } catch (error) {
+      console.error("RADAR callback error:", error.message);
+    }
+    return res.status(200).json({ ok: true });
+  }
+  const message = update.message;
   if (!message?.chat?.id) return res.status(200).json({ ok: true });
   const chatId = message.chat.id;
   try {
