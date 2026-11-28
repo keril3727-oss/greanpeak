@@ -348,10 +348,33 @@ module.exports = async function handler(req, res) {
       );
     } else if (String(message.text || "").split("@")[0] === "/giveaway" &&
       String(message.from?.username || "").toLowerCase() === "verpot") {
-      await say(chatId,
-        "🎁 РОЗЫГРЫШ RADAR!\n\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\n\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\n\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.",
-        { inline_keyboard: [[{ text: "🎁 Получить реферальную ссылку", callback_data: "get_ref_link" }]] }
-      );
+      const giveawayText = "🎁 РОЗЫГРЫШ RADAR!\\n\\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\\n\\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\\n\\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.";
+      const replyMarkup = { inline_keyboard: [[{ text: "🎁 Получить реферальную ссылку", callback_data: "get_ref_link" }]] };
+      let sent = 0;
+      let failed = 0;
+      let offset = 0;
+      while (true) {
+        const usersResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=chat_id&order=telegram_user_id.asc", {
+          headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, Range: offset + "-" + (offset + 499) }
+        });
+        if (!usersResponse.ok) throw new Error("Не удалось загрузить список участников для рассылки");
+        const users = await usersResponse.json();
+        if (!Array.isArray(users) || users.length === 0) break;
+        for (const user of users) {
+          if (!user.chat_id) continue;
+          try {
+            await say(user.chat_id, giveawayText, replyMarkup);
+            sent++;
+          } catch (sendError) {
+            failed++;
+            console.error("RADAR giveaway send failed:", sendError.message);
+          }
+          await new Promise(resolve => setTimeout(resolve, 40));
+        }
+        offset += users.length;
+        if (users.length < 500) break;
+      }
+      await say(chatId, "✅ Пост розыгрыша отправлен участникам RADAR.\\nУспешно: " + sent + "\\nНе доставлено: " + failed);
     } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
       const inviteCount = await getReferralCount(message.from.id);
       await say(chatId, "🎁 Твоя реферальная ссылка:\n" + referralLink(message.from.id) + "\n\nПриглашено новых пользователей: " + inviteCount + "\n\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
