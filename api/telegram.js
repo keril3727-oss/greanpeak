@@ -33,9 +33,9 @@ async function trackNewUser(message) {
     if (referredBy) {
       const rr = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?telegram_user_id=eq." + referredBy + "&select=username,first_name&limit=1", { headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY } });
       const refs = rr.ok ? await rr.json() : [];
-      refLine = "\\nПригласил: " + (refs[0]?.username ? "@" + refs[0].username : (refs[0]?.first_name || "ID " + referredBy));
+      refLine = "\nПригласил: " + (refs[0]?.username ? "@" + refs[0].username : (refs[0]?.first_name || "ID " + referredBy));
     }
-    await say(NEW_USERS_CHAT_ID, "🆕 Новый пользователь RADAR\\nИмя: " + name + "\\nUsername: " + username + "\\nID: " + userId + refLine + "\\nВсего пользователей: " + total);
+    await say(NEW_USERS_CHAT_ID, "🆕 Новый пользователь RADAR\nИмя: " + name + "\nUsername: " + username + "\nID: " + userId + refLine + "\nВсего пользователей: " + total);
   } catch (error) { console.error("RADAR user tracking error:", error.message); }
 }
 
@@ -328,12 +328,12 @@ module.exports = async function handler(req, res) {
       await trackNewUser(message);
       const inviteCount = await getReferralCount(message.from.id);
       await say(chatId,
-        "Привет! Я RADAR 🔎\\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.\\n\\n🎁 РОЗЫГРЫШ\\nПриглашай друзей по своей ссылке. Победит участник, который пригласит больше всего новых пользователей!\\n\\nТвоя ссылка:\\n" + referralLink(message.from.id) + "\\n\\nПриглашено друзей: " + inviteCount,
+        "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.\n\n🎁 РОЗЫГРЫШ\nПриглашай друзей по своей ссылке. Победит участник, который пригласит больше всего новых пользователей!\n\nТвоя ссылка:\n" + referralLink(message.from.id) + "\n\nПриглашено друзей: " + inviteCount,
         keyboard()
       );
     } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
       const inviteCount = await getReferralCount(message.from.id);
-      await say(chatId, "🎁 Твоя реферальная ссылка:\\n" + referralLink(message.from.id) + "\\n\\nПриглашено новых пользователей: " + inviteCount + "\\n\\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
+      await say(chatId, "🎁 Твоя реферальная ссылка:\n" + referralLink(message.from.id) + "\n\nПриглашено новых пользователей: " + inviteCount + "\n\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
     } else if ((String(message.text || "").split("@")[0] === "/refstats" || String(message.text || "").split("@")[0] === "/refleaderboard") &&
       (String(message.from?.username || "").toLowerCase() === "verpot" || String(chatId) === NEW_USERS_CHAT_ID)) {
       const rows = await getReferralLeaderboard();
@@ -342,7 +342,7 @@ module.exports = async function handler(req, res) {
       const totalResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=telegram_user_id", { method: "HEAD", headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, Prefer: "count=exact", Range: "0-0" } });
       const totalUsers = (totalResponse.headers.get("content-range") || "").split("/")[1] || "—";
       const top = list.slice(0, 30).map((row, i) => (i + 1) + ". " + (row.username ? "@" + row.username : (row.first_name || "Без имени")) + " — " + Number(row.invited_count || 0) + " приглаш.");
-      await say(chatId, "📊 Статистика розыгрыша RADAR\\nВсего пользователей: " + totalUsers + "\\nПришли по реферальным ссылкам: " + totalInvited + "\\n\\n🏆 Таблица лидеров:\\n" + (top.join("\\n") || "Пока приглашений нет."));
+      await say(chatId, "📊 Статистика розыгрыша RADAR\nВсего пользователей: " + totalUsers + "\nПришли по реферальным ссылкам: " + totalInvited + "\n\n🏆 Таблица лидеров:\n" + (top.join("\n") || "Пока приглашений нет."));
     } else if (message.text === "/help" || message.text === "ℹ️ Помощь") {
       await say(chatId, "Отправь фото одной вещи при хорошем освещении. Лучше, если видны логотип, бирка и детали. Поиск открывается ссылками; цены и наличие нужно проверить в магазине.", keyboard());
     } else if (message.text === "🔎 Найти по фото") {
