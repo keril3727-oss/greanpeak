@@ -251,7 +251,7 @@ module.exports = async function handler(req, res) {
   if (update.pre_checkout_query) {
     try {
       const query = update.pre_checkout_query;
-      const validPayload = /^radar_search:(\\d+):\\d+$/.test(query.invoice_payload || "") &&
+      const validPayload = /^radar_search:(\d+):\d+$/.test(query.invoice_payload || "") &&
         Number((query.invoice_payload || "").split(":")[1]) === Number(query.from?.id) &&
         query.currency === "XTR" && query.total_amount === 5;
       await telegram("answerPreCheckoutQuery", {
@@ -271,7 +271,7 @@ module.exports = async function handler(req, res) {
     if (message.successful_payment) {
       const payment = message.successful_payment;
       const payload = String(payment.invoice_payload || "");
-      const match = payload.match(/^radar_search:(\\d+):\\d+$/);
+      const match = payload.match(/^radar_search:(\d+):\d+$/);
       if (!match || Number(match[1]) !== Number(message.from?.id) ||
           payment.currency !== "XTR" || payment.total_amount !== 5) {
         throw new Error("Invalid RADAR Stars payment payload");
