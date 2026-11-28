@@ -343,6 +343,12 @@ module.exports = async function handler(req, res) {
     } else if (message.text === "/start" || String(message.text || "").startsWith("/start ")) {
       await trackNewUser(message);
       await say(chatId,
+        "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.",
+        { keyboard: [[{ text: "🔎 Найти по фото" }], [{ text: "ℹ️ Помощь" }]], resize_keyboard: true }
+      );
+    } else if (String(message.text || "").split("@")[0] === "/giveaway" &&
+      String(message.from?.username || "").toLowerCase() === "verpot") {
+      await say(chatId,
         "🎁 РОЗЫГРЫШ RADAR!\n\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\n\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\n\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.",
         { inline_keyboard: [[{ text: "🎁 Получить реферальную ссылку", callback_data: "get_ref_link" }]] }
       );
