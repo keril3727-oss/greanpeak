@@ -197,6 +197,7 @@ async function handlePhoto(message) {
   const chatId = message.chat.id;
   const userId = message.from?.id;
   if (!userId) return say(chatId, "Не удалось определить пользователя. Нажми /start и попробуй снова.");
+  if (!GEMINI_KEY) return say(chatId, "Распознавание пока не настроено. Попробуй позже.");
   const quota = await supabaseRpc("radar_consume_search", { p_telegram_user_id: userId });
   if (!quota?.allowed) {
     await say(chatId, "🎟 Бесплатные поиски на эту неделю закончились. Следующий поиск стоит 5 Telegram Stars.");
@@ -204,12 +205,24 @@ async function handlePhoto(message) {
     return;
   }
   await say(chatId, "📸 Фото получил. Пытаюсь определить бренд и модель…");
-  if (!GEMINI_KEY) {
-    return say(chatId, "Распознавание пока не настроено. Попробуй позже.");
+  let file;
+  let item;
+  try {
+    const photo = message.photo[message.photo.length - 1];
+    file = await getFileBytes(photo.file_id);
+    item = await identifyImage(file.bytes, file.mimeType);
+  } catch (error) {
+    try {
+      await supabaseRpc("radar_refund_search", {
+        p_telegram_user_id: userId,
+        p_kind: quota.kind,
+        p_week_start: quota.week_start
+      });
+    } catch (refundError) {
+      console.error("RADAR search refund error:", refundError.message);
+    }
+    throw new Error("Поиск не выполнен. Попробуй ещё раз — попытка возвращена.");
   }
-  const photo = message.photo[message.photo.length - 1];
-  const file = await getFileBytes(photo.file_id);
-  const item = await identifyImage(file.bytes, file.mimeType);
   if (!item.category && !item.model_name && !item.search_terms_ru) {
     return say(chatId, "Не получилось разобрать вещь на фото. Попробуй прислать более чёткое фото целиком и отдельно логотип или бирку.");
   }
@@ -302,7 +315,7 @@ module.exports = async function handler(req, res) {
     }
   } catch (error) {
     console.error("RADAR bot error:", error.message);
-    await say(chatId, "Не удалось обработать фото. Попробуй ещё раз чуть позже.");
+    await say(chatId, error.message.includes("Поиск не выполнен") ? error.message : "Не удалось обработать фото. Попробуй ещё раз чуть позже.");
   }
   return res.status(200).json({ ok: true });
 };
