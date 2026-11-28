@@ -334,7 +334,7 @@ module.exports = async function handler(req, res) {
     } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
       const inviteCount = await getReferralCount(message.from.id);
       await say(chatId, "🎁 Твоя реферальная ссылка:\\n" + referralLink(message.from.id) + "\\n\\nПриглашено новых пользователей: " + inviteCount + "\\n\\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
-    } else if ((message.text === "/refstats" || message.text === "/refleaderboard") &&
+    } else if ((String(message.text || "").split("@")[0] === "/refstats" || String(message.text || "").split("@")[0] === "/refleaderboard") &&
       (String(message.from?.username || "").toLowerCase() === "verpot" || String(chatId) === NEW_USERS_CHAT_ID)) {
       const rows = await getReferralLeaderboard();
       const list = Array.isArray(rows) ? rows : [];
