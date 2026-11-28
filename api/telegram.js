@@ -274,6 +274,22 @@ module.exports = async function handler(req, res) {
   if (!BOT_TOKEN) return res.status(503).json({ ok: false, error: "Bot is not configured" });
   const update = req.body || {};
   const callback = update.callback_query;
+  if (callback?.data === "get_ref_link") {
+    try {
+      const userId = callback.from?.id;
+      const count = await getReferralCount(userId);
+      await telegram("answerCallbackQuery", { callback_query_id: callback.id });
+      await say(callback.message.chat.id,
+        "🎁 Твоя личная ссылка для розыгрыша:\\n" + referralLink(userId) +
+        "\\n\\n👥 Приглашено друзей: " + count +
+        "\\n\\nЗасчитываются только новые пользователи, которые впервые запускают бота по твоей ссылке."
+      );
+    } catch (error) {
+      console.error("RADAR referral callback error:", error.message);
+      await telegram("answerCallbackQuery", { callback_query_id: callback.id, text: "Не удалось получить ссылку. Попробуй ещё раз." });
+    }
+    return res.status(200).json({ ok: true });
+  }
   if (callback?.data === "tryon_coming_soon") {
     try {
       await telegram("answerCallbackQuery", { callback_query_id: callback.id, text: "Скоро будет!" });
@@ -326,10 +342,9 @@ module.exports = async function handler(req, res) {
       await handlePhoto(message);
     } else if (message.text === "/start" || String(message.text || "").startsWith("/start ")) {
       await trackNewUser(message);
-      const inviteCount = await getReferralCount(message.from.id);
       await say(chatId,
-        "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.\n\n🎁 РОЗЫГРЫШ\nПриглашай друзей по своей ссылке. Победит участник, который пригласит больше всего новых пользователей!\n\nТвоя ссылка:\n" + referralLink(message.from.id) + "\n\nПриглашено друзей: " + inviteCount,
-        keyboard()
+        "🎁 РОЗЫГРЫШ RADAR!\n\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\n\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\n\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.",
+        { inline_keyboard: [[{ text: "🎁 Получить реферальную ссылку", callback_data: "get_ref_link" }]] }
       );
     } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
       const inviteCount = await getReferralCount(message.from.id);
