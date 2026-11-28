@@ -164,8 +164,45 @@ function makeSearchLinks(item) {
   ];
 }
 
+async function supabaseRpc(name, body) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase billing is not configured");
+  const response = await fetch(SUPABASE_URL + "/rest/v1/rpc/" + name, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_KEY,
+      authorization: "Bearer " + SUPABASE_KEY,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.message || ("Supabase RPC failed: " + response.status));
+  return data;
+}
+
+async function sendStarsInvoice(chatId, userId) {
+  const payload = "radar_search:" + userId + ":" + Date.now();
+  return telegram("sendInvoice", {
+    chat_id: chatId,
+    title: "Поиск по фото",
+    description: "Один дополнительный поиск вещи по фотографии.",
+    payload,
+    provider_token: "",
+    currency: "XTR",
+    prices: [{ label: "1 поиск", amount: 5 }]
+  });
+}
+
 async function handlePhoto(message) {
   const chatId = message.chat.id;
+  const userId = message.from?.id;
+  if (!userId) return say(chatId, "Не удалось определить пользователя. Нажми /start и попробуй снова.");
+  const quota = await supabaseRpc("radar_consume_search", { p_telegram_user_id: userId });
+  if (!quota?.allowed) {
+    await say(chatId, "🎟 Бесплатные поиски на эту неделю закончились. Следующий поиск стоит 5 Telegram Stars.");
+    await sendStarsInvoice(chatId, userId);
+    return;
+  }
   await say(chatId, "📸 Фото получил. Пытаюсь определить бренд и модель…");
   if (!GEMINI_KEY) {
     return say(chatId, "Распознавание пока не настроено. Попробуй позже.");
@@ -211,11 +248,44 @@ module.exports = async function handler(req, res) {
     }
     return res.status(200).json({ ok: true });
   }
+  if (update.pre_checkout_query) {
+    try {
+      const query = update.pre_checkout_query;
+      const validPayload = /^radar_search:(\\d+):\\d+$/.test(query.invoice_payload || "") &&
+        Number((query.invoice_payload || "").split(":")[1]) === Number(query.from?.id) &&
+        query.currency === "XTR" && query.total_amount === 5;
+      await telegram("answerPreCheckoutQuery", {
+        pre_checkout_query_id: query.id,
+        ok: validPayload,
+        ...(!validPayload ? { error_message: "Платёж не прошёл проверку. Закрой счёт и попробуй ещё раз." } : {})
+      });
+    } catch (error) {
+      console.error("RADAR pre-checkout error:", error.message);
+    }
+    return res.status(200).json({ ok: true });
+  }
   const message = update.message;
   if (!message?.chat?.id) return res.status(200).json({ ok: true });
   const chatId = message.chat.id;
   try {
-    if (message.photo?.length) {
+    if (message.successful_payment) {
+      const payment = message.successful_payment;
+      const payload = String(payment.invoice_payload || "");
+      const match = payload.match(/^radar_search:(\\d+):\\d+$/);
+      if (!match || Number(match[1]) !== Number(message.from?.id) ||
+          payment.currency !== "XTR" || payment.total_amount !== 5) {
+        throw new Error("Invalid RADAR Stars payment payload");
+      }
+      const result = await supabaseRpc("radar_add_paid_search", {
+        p_telegram_user_id: Number(match[1]),
+        p_charge_id: payment.telegram_payment_charge_id,
+        p_amount: payment.total_amount,
+        p_currency: payment.currency
+      });
+      await say(chatId, result?.credited
+        ? "⭐ Оплата получена! Добавлен 1 поиск. Теперь отправь фото вещи ещё раз."
+        : "Этот платёж уже был учтён. Отправь фото вещи, чтобы продолжить.");
+    } else if (message.photo?.length) {
       await handlePhoto(message);
     } else if (message.text === "/start") {
       await trackNewUser(message);
