@@ -280,9 +280,9 @@ module.exports = async function handler(req, res) {
       const count = await getReferralCount(userId);
       await telegram("answerCallbackQuery", { callback_query_id: callback.id });
       await say(callback.message.chat.id,
-        "🎁 Твоя личная ссылка для розыгрыша:\\n" + referralLink(userId) +
-        "\\n\\n👥 Приглашено друзей: " + count +
-        "\\n\\nЗасчитываются только новые пользователи, которые впервые запускают бота по твоей ссылке."
+        "🎁 Твоя личная ссылка для розыгрыша:\n" + referralLink(userId) +
+        "\n\n👥 Приглашено друзей: " + count +
+        "\n\nЗасчитываются только новые пользователи, которые впервые запускают бота по твоей ссылке."
       );
     } catch (error) {
       console.error("RADAR referral callback error:", error.message);
