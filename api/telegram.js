@@ -82,11 +82,14 @@ async function identifyImage(bytes, mimeType) {
     "Осмотри логотипы, надписи, бирки, ярлыки, принты, форму карманов, швы, подошву, застёжки, силуэт и другие уникальные детали.",
     "Перепиши только реально читаемый текст с фото, включая артикулы и коды. Не угадывай нечитаемые символы.",
     "Определи бренд и модель только при наличии визуальных оснований. Не путай общий тип вещи с конкретной моделью. Не выдумывай артикулы.",
-    "Если точная модель не подтверждается, оставь model_name и model_code пустыми, а search_terms_ru составь как точный описательный запрос по видимым признакам.",
-    "Укажи отличительные признаки, которые поддерживают идентификацию. confidence — число от 0 до 1, уверенность именно в модели, а не в категории. Не завышай оценку.",
+    "Определи также подтип товара, предполагаемый материал, принт/узор, посадку и целевую категорию (мужская/женская/детская/унисекс) только если это видно; неизвестное оставляй пустым.",
+    "Разделяй наблюдения и догадки: не выводи бренд по одному лишь стилю, не считай похожий силуэт доказательством модели. Если точная модель не подтверждается, оставь model_name и model_code пустыми.",
+    "Сформируй search_terms_ru как естественный запрос для магазинов РФ/РБ: бренд (если подтверждён) + тип вещи + цвет + 2-3 уникальные детали. search_terms_en — аналогичный запрос на английском.",
+    "Укажи отличительные признаки, которые поддерживают идентификацию. confidence — число от 0 до 1, уверенность именно в модели, а не в категории. Для точной модели требуй читаемый артикул/название или несколько очень характерных совпадающих деталей.",
     "Верни только JSON: {",
     '\"is_identifiable\": boolean, \"brand\": string, \"model_name\": string,',
-    '\"model_code\": string, \"category\": string, \"color\": string,',
+    '\"model_code\": string, \"category\": string, \"subcategory\": string,',
+    '\"color\": string, \"material\": string, \"pattern\": string, \"fit\": string, \"gender\": string,',
     '\"visible_text\": string, \"distinctive_details\": [string],',
     '\"search_terms_ru\": string, \"search_terms_en\": string,',
     '\"confidence\": number, \"exact_model_confirmed\": boolean',
@@ -142,26 +145,38 @@ async function getFileBytes(fileId) {
 }
 
 function makeSearchLinks(item) {
-  const clean = (v) => String(v || "").trim();
+  const clean = (v) => String(v || "").replace(/\\s+/g, " ").trim();
   const brand = clean(item.brand);
   const model = clean(item.model_name);
   const code = clean(item.model_code);
-  const category = clean(item.category);
+  const category = clean(item.subcategory || item.category);
   const color = clean(item.color);
+  const material = clean(item.material);
+  const pattern = clean(item.pattern);
   const ru = clean(item.search_terms_ru);
-  const exact = [brand, model, code].filter(Boolean).join(" ");
-  // When the model is unknown, search by visual description instead of brand alone.
-  const hasSpecificModel = Boolean(model || code);
-  const broad = [brand, category, color, ru].filter(Boolean).join(" ");
-  const q = encodeURIComponent(hasSpecificModel ? exact : (broad || exact || "одежда"));
-  return [
-    { text: "Ozon", url: "https://www.ozon.ru/search/?text=" + q },
-    { text: "Wildberries", url: "https://www.wildberries.ru/catalog/0/search.aspx?search=" + q },
-    { text: "Avito", url: "https://www.avito.ru/rossiya?q=" + q },
-    { text: "Kufar", url: "https://www.kufar.by/l?query=" + q },
-    { text: "💰 Купить по лучшей цене", url: "https://t.me/radar_shmot" },
-    { text: "📢 Купить рекламу · @verpot", url: "https://t.me/verpot" }
+  const details = Array.isArray(item.distinctive_details) ? item.distinctive_details.filter(Boolean).slice(0, 2).join(" ") : "";
+  // Do not label an unverified guess as an exact-model search.
+  const confirmed = item.exact_model_confirmed === true && Boolean(model || code);
+  const preciseText = [brand, model, code, category].filter(Boolean).join(" ");
+  const descriptiveText = [brand, ru || [category, color, material, pattern, details].filter(Boolean).join(" ")].filter(Boolean).join(" ");
+  const exactQuery = encodeURIComponent(preciseText || descriptiveText || "одежда");
+  const similarQuery = encodeURIComponent(descriptiveText || preciseText || "одежда");
+  const shops = [
+    { name: "Ozon", base: "https://www.ozon.ru/search/?text=" },
+    { name: "Wildberries", base: "https://www.wildberries.ru/catalog/0/search.aspx?search=" },
+    { name: "Avito", base: "https://www.avito.ru/rossiya?q=" },
+    { name: "Kufar", base: "https://www.kufar.by/l?query=" }
   ];
+  const links = [];
+  for (const shop of shops) {
+    links.push({
+      text: (confirmed ? "🎯 " : "🔎 ") + shop.name + (confirmed ? " · модель" : " · поиск"),
+      url: shop.base + (confirmed ? exactQuery : similarQuery)
+    });
+  }
+  links.push({ text: "💰 Купить по лучшей цене", url: "https://t.me/radar_shmot" });
+  links.push({ text: "📢 Купить рекламу · @verpot", url: "https://t.me/verpot" });
+  return links;
 }
 
 async function supabaseRpc(name, body) {
@@ -235,7 +250,12 @@ async function handlePhoto(message) {
   await say(chatId,
     "🔎 Результат распознавания: " + (query || "модель не определена") +
     (item.category ? "\nКатегория: " + item.category : "") +
+    (item.subcategory ? "\nПодтип: " + item.subcategory : "") +
     (item.color ? "\nЦвет: " + item.color : "") +
+    (item.material ? "\nМатериал: " + item.material : "") +
+    (item.pattern ? "\nУзор: " + item.pattern : "") +
+    (item.fit ? "\nПосадка: " + item.fit : "") +
+    (item.gender ? "\nЛинейка: " + item.gender : "") +
     (item.visible_text ? "\nТекст/бирка: " + String(item.visible_text).slice(0, 180) : "") +
     (details.length ? "\nОтличительные детали: " + details.join("; ") : "") +
     "\nУверенность в модели: " + confidenceLabel + " (" + Math.round(confidence * 100) + "%)" +
