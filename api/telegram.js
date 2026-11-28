@@ -7,47 +7,51 @@ const NEW_USERS_CHAT_ID = "-1003674295085";
 async function trackNewUser(message) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !message.from?.id) return;
   try {
+    const userId = Number(message.from.id);
+    const startPayload = String(message.text || "").trim().split(/\\s+/, 2)[1] || "";
+    const refMatch = startPayload.match(/^ref_(\\d+)$/);
+    let referredBy = refMatch ? Number(refMatch[1]) : null;
+    if (!Number.isSafeInteger(referredBy) || referredBy === userId) referredBy = null;
+    if (referredBy) {
+      const check = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?telegram_user_id=eq." + referredBy + "&select=telegram_user_id&limit=1", { headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY } });
+      const rows = check.ok ? await check.json() : [];
+      if (!Array.isArray(rows) || !rows.length) referredBy = null;
+    }
     const response = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users", {
       method: "POST",
-      headers: {
-        apikey: SUPABASE_KEY,
-        authorization: "Bearer " + SUPABASE_KEY,
-        "content-type": "application/json",
-        Prefer: "resolution=ignore-duplicates,return=representation"
-      },
-      body: JSON.stringify({
-        telegram_user_id: message.from.id,
-        chat_id: message.chat.id,
-        username: message.from.username || null,
-        first_name: message.from.first_name || null,
-        last_name: message.from.last_name || null
-      })
+      headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, "content-type": "application/json", Prefer: "resolution=ignore-duplicates,return=representation" },
+      body: JSON.stringify({ telegram_user_id: userId, chat_id: message.chat.id, username: message.from.username || null, first_name: message.from.first_name || null, last_name: message.from.last_name || null, referred_by: referredBy })
     });
     if (!response.ok) throw new Error("Supabase insert failed: " + response.status);
     const inserted = await response.json();
-    if (!Array.isArray(inserted) || inserted.length === 0) return;
-    const countResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=telegram_user_id", {
-      method: "HEAD",
-      headers: {
-        apikey: SUPABASE_KEY,
-        authorization: "Bearer " + SUPABASE_KEY,
-        Prefer: "count=exact",
-        Range: "0-0"
-      }
-    });
-    const range = countResponse.headers.get("content-range") || "";
-    const total = range.split("/")[1] || "—";
+    if (!Array.isArray(inserted) || !inserted.length) return;
+    const countResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=telegram_user_id", { method: "HEAD", headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, Prefer: "count=exact", Range: "0-0" } });
+    const total = (countResponse.headers.get("content-range") || "").split("/")[1] || "—";
     const name = [message.from.first_name, message.from.last_name].filter(Boolean).join(" ") || "не указано";
     const username = message.from.username ? "@" + message.from.username : "не указан";
-    await say(NEW_USERS_CHAT_ID,
-      "🆕 Новый пользователь RADAR\nИмя: " + name +
-      "\nUsername: " + username +
-      "\nID: " + message.from.id +
-      "\nВсего пользователей: " + total
-    );
-  } catch (error) {
-    console.error("RADAR user tracking error:", error.message);
-  }
+    let refLine = "";
+    if (referredBy) {
+      const rr = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?telegram_user_id=eq." + referredBy + "&select=username,first_name&limit=1", { headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY } });
+      const refs = rr.ok ? await rr.json() : [];
+      refLine = "\\nПригласил: " + (refs[0]?.username ? "@" + refs[0].username : (refs[0]?.first_name || "ID " + referredBy));
+    }
+    await say(NEW_USERS_CHAT_ID, "🆕 Новый пользователь RADAR\\nИмя: " + name + "\\nUsername: " + username + "\\nID: " + userId + refLine + "\\nВсего пользователей: " + total);
+  } catch (error) { console.error("RADAR user tracking error:", error.message); }
+}
+
+async function getReferralCount(userId) {
+  const response = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?referred_by=eq." + Number(userId) + "&select=telegram_user_id", { method: "HEAD", headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, Prefer: "count=exact", Range: "0-0" } });
+  if (!response.ok) throw new Error("Не удалось получить статистику приглашений");
+  const count = Number((response.headers.get("content-range") || "").split("/")[1]);
+  return Number.isFinite(count) ? count : 0;
+}
+
+async function getReferralLeaderboard() {
+  return supabaseRpc("radar_referral_leaderboard", {});
+}
+
+function referralLink(userId) {
+  return "https://t.me/P_radar_bot?start=ref_" + Number(userId);
 }
 
 const tg = (method) => "https://api.telegram.org/bot" + BOT_TOKEN + "/" + method;
@@ -71,7 +75,7 @@ async function say(chatId, text, replyMarkup) {
 }
 
 function keyboard() {
-  return { keyboard: [[{ text: "🔎 Найти по фото" }], [{ text: "ℹ️ Помощь" }]], resize_keyboard: true };
+  return { keyboard: [[{ text: "🔎 Найти по фото" }], [{ text: "🎁 Моя ссылка" }], [{ text: "ℹ️ Помощь" }]], resize_keyboard: true };
 }
 
 async function identifyImage(bytes, mimeType) {
@@ -320,12 +324,25 @@ module.exports = async function handler(req, res) {
         : "Этот платёж уже был учтён. Отправь фото вещи, чтобы продолжить.");
     } else if (message.photo?.length) {
       await handlePhoto(message);
-    } else if (message.text === "/start") {
+    } else if (message.text === "/start" || String(message.text || "").startsWith("/start ")) {
       await trackNewUser(message);
+      const inviteCount = await getReferralCount(message.from.id);
       await say(chatId,
-        "Привет! Я RADAR 🔎\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.",
+        "Привет! Я RADAR 🔎\\nОтправь фото одежды, обуви, сумки или аксессуара. Я попробую определить модель и дам ссылки на поиск в магазинах России и Беларуси.\\n\\n🎁 РОЗЫГРЫШ\\nПриглашай друзей по своей ссылке. Победит участник, который пригласит больше всего новых пользователей!\\n\\nТвоя ссылка:\\n" + referralLink(message.from.id) + "\\n\\nПриглашено друзей: " + inviteCount,
         keyboard()
       );
+    } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
+      const inviteCount = await getReferralCount(message.from.id);
+      await say(chatId, "🎁 Твоя реферальная ссылка:\\n" + referralLink(message.from.id) + "\\n\\nПриглашено новых пользователей: " + inviteCount + "\\n\\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
+    } else if ((message.text === "/refstats" || message.text === "/refleaderboard") &&
+      (String(message.from?.username || "").toLowerCase() === "verpot" || String(chatId) === NEW_USERS_CHAT_ID)) {
+      const rows = await getReferralLeaderboard();
+      const list = Array.isArray(rows) ? rows : [];
+      const totalInvited = list.reduce((sum, row) => sum + Number(row.invited_count || 0), 0);
+      const totalResponse = await fetch(SUPABASE_URL + "/rest/v1/radar_bot_users?select=telegram_user_id", { method: "HEAD", headers: { apikey: SUPABASE_KEY, authorization: "Bearer " + SUPABASE_KEY, Prefer: "count=exact", Range: "0-0" } });
+      const totalUsers = (totalResponse.headers.get("content-range") || "").split("/")[1] || "—";
+      const top = list.slice(0, 30).map((row, i) => (i + 1) + ". " + (row.username ? "@" + row.username : (row.first_name || "Без имени")) + " — " + Number(row.invited_count || 0) + " приглаш.");
+      await say(chatId, "📊 Статистика розыгрыша RADAR\\nВсего пользователей: " + totalUsers + "\\nПришли по реферальным ссылкам: " + totalInvited + "\\n\\n🏆 Таблица лидеров:\\n" + (top.join("\\n") || "Пока приглашений нет."));
     } else if (message.text === "/help" || message.text === "ℹ️ Помощь") {
       await say(chatId, "Отправь фото одной вещи при хорошем освещении. Лучше, если видны логотип, бирка и детали. Поиск открывается ссылками; цены и наличие нужно проверить в магазине.", keyboard());
     } else if (message.text === "🔎 Найти по фото") {
