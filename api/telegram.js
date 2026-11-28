@@ -348,7 +348,7 @@ module.exports = async function handler(req, res) {
       );
     } else if (String(message.text || "").split("@")[0] === "/giveaway" &&
       String(message.from?.username || "").toLowerCase() === "verpot") {
-      const giveawayText = "🎁 РОЗЫГРЫШ RADAR!\\n\\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\\n\\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\\n\\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.";
+      const giveawayText = "🎁 РОЗЫГРЫШ RADAR!\n\nПобедит тот, кто пригласит больше всего новых пользователей в бота.\n\n🏆 Чем больше друзей пригласишь — тем выше твои шансы на победу!\n\nНажми кнопку ниже, чтобы получить личную ссылку для приглашений.";
       const replyMarkup = { inline_keyboard: [[{ text: "🎁 Получить реферальную ссылку", callback_data: "get_ref_link" }]] };
       let sent = 0;
       let failed = 0;
@@ -374,7 +374,7 @@ module.exports = async function handler(req, res) {
         offset += users.length;
         if (users.length < 500) break;
       }
-      await say(chatId, "✅ Пост розыгрыша отправлен участникам RADAR.\\nУспешно: " + sent + "\\nНе доставлено: " + failed);
+      await say(chatId, "✅ Пост розыгрыша отправлен участникам RADAR.\nУспешно: " + sent + "\nНе доставлено: " + failed);
     } else if (message.text === "/ref" || message.text === "🎁 Моя ссылка") {
       const inviteCount = await getReferralCount(message.from.id);
       await say(chatId, "🎁 Твоя реферальная ссылка:\n" + referralLink(message.from.id) + "\n\nПриглашено новых пользователей: " + inviteCount + "\n\nЗасчитываются только новые аккаунты, которые впервые запускают бота по твоей ссылке.");
