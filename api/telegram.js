@@ -75,7 +75,7 @@ async function say(chatId, text, replyMarkup) {
 }
 
 function keyboard() {
-  return { keyboard: [[{ text: "🔎 Найти по фото" }], [{ text: "🎁 Моя ссылка" }], [{ text: "ℹ️ Помощь" }]], resize_keyboard: true };
+  return { keyboard: [[{ text: "🔎 Найти по фото" }], [{ text: "ℹ️ Помощь" }]], resize_keyboard: true };
 }
 
 async function identifyImage(bytes, mimeType) {
